@@ -83,3 +83,73 @@ if args.v:
     print("tries =", tries, "\nv =", v)
 
 
+# -------------------- Generating L1 -------------------- #
+L1_dimensions = v[u - 1] - v[0]
+while True:
+    for i in range(L1_dimensions):
+        L1.append(list())
+        for j in range(L1_dimensions):
+            L1[-1].append(generator(32))
+    
+    try:
+        L1inv = np.linalg.inv(L1)
+        break
+    except:
+        del L1
+        L1 = list()
+
+
+# -------------------- Generating L2 -------------------- #
+L2_dimensions = v[u - 1]
+while True:
+    for i in range(L2_dimensions):
+        L2.append(list())
+        for j in range(L2_dimensions):
+            L2[-1].append(generator(32))
+    
+    try:
+        L2inv = np.linalg.inv(L2)
+        break
+    except:
+        del L2
+        L2 = list()
+
+
+# -------------------- Generating F -------------------- #
+for _i in range(u-1):
+    F_layers.append(dict)
+    layer = F_layers[-1]
+    
+    layer['alphas'] = list()
+    layer['betas'] = list()
+    layer['gammas'] = list()
+    layer['etas'] = list()
+
+    # oi is number of polynomials
+    oi = v[i + 1] - v[i]
+    for k in range(oi):
+        layer['alphas'].append(list())
+        layer['betas'].append(list())
+        layer['gammas'].append(list())
+
+        # alphas
+        for i in range(oi):
+            layer['alphas'][-1].append(list())
+            for j in range(v[i]):
+                layer['alphas'][-1][-1].append(generator(32))
+
+        # betas
+        for i in range(v[i]):
+            layer['betas'][-1].append(list())
+            for j in range(v[i]):
+                layer['betas'][-1][-1].append(generator(32))
+
+        # gammas
+        for i in range(v[i+1]):
+            layer['gammas'][-1].append(generator(32))
+
+        # etas
+        layer['etas'].append(generator(32))
+
+
+# -------------------- Generating Public Key -------------------- #
