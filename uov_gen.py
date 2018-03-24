@@ -117,7 +117,7 @@ while True:
 
 # -------------------- Generating F -------------------- #
 for _i in range(u-1):
-    F_layers.append(dict)
+    F_layers.append(dict())
     layer = F_layers[-1]
     
     layer['alphas'] = list()
@@ -126,7 +126,7 @@ for _i in range(u-1):
     layer['etas'] = list()
 
     # oi is number of polynomials
-    oi = v[i + 1] - v[i]
+    oi = v[_i + 1] - v[_i]
     for k in range(oi):
         layer['alphas'].append(list())
         layer['betas'].append(list())
@@ -135,17 +135,17 @@ for _i in range(u-1):
         # alphas
         for i in range(oi):
             layer['alphas'][-1].append(list())
-            for j in range(v[i]):
+            for j in range(v[_i]):
                 layer['alphas'][-1][-1].append(generator(32))
 
         # betas
-        for i in range(v[i]):
+        for i in range(v[_i]):
             layer['betas'][-1].append(list())
-            for j in range(v[i]):
+            for j in range(v[_i]):
                 layer['betas'][-1][-1].append(generator(32))
 
         # gammas
-        for i in range(v[i+1]):
+        for i in range(v[_i+1]):
             layer['gammas'][-1].append(generator(32))
 
         # etas
