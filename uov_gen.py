@@ -1,12 +1,12 @@
 # -------------------- IMPORTS and Definitions -------------------- #
 import secrets, argparse, numpy as np
 
-def generator(nbits):
-    '''Returns a random integer of size nbytes '''
-    gen = secrets.randbits(nbits)
-    while not gen:
-        gen = secrets.randbits(nbits)
-    return gen
+# Generate random numbers below k
+def generate_random_element(k):
+    num = secrets.randbelow(k)
+    while not num :
+        num = secrets.randbelow(k)
+    return num
 
 # -------------------- Command Line Arguements -------------------- #
 parser = argparse.ArgumentParser(description='Asymmetric key generation using Unbalanced Oil and Vinegar Scheme.')
@@ -42,54 +42,34 @@ b2 = list()
 F_layers = list()
 v = list()              # vinegar layers
 
-n = 33          
-u = 5           # number of layers
-
+n = 6        
+u = 3                   # number of layers
+k = 7                   # finite space of elements
 
 # Components of public key
 coeff_quadratic = list()
 coeff_singular = list()
 coeff_scalars = list()
 
-
-nbits = len("{0:b}".format(n)) - 1
-tries = 0
-
-if args.vv:
-    print("nbits =", nbits)
-
-while True:
-    _nbits = nbits - 1
-    v.append(generator(nbits))
-
-    for i in range(u-1):
-        v.append(v[-1] + generator(_nbits))
-        _nbits -= 1
-        if v[-1] > n:
-            break
-    
-    if v[-1] <= n:
-        v[-1] = n
+while True : 
+    if len(v) == u :
+        v.sort()
+        v[-1] = n 
         break
-    else:
-        del v
-        v = list()
-        tries += 1
-        if tries == 100:
-            print("N might be too small, could not generate vector in 100 tries!")
-            break
 
-if args.v:
-    print("tries =", tries, "\nv =", v)
+    rnum = generate_random_element(k)
 
-
+    if rnum not in v :
+        v.append(rnum)
+    
 # -------------------- Generating L1 -------------------- #
+
 L1_dimensions = v[u - 1] - v[0]
 while True:
     for i in range(L1_dimensions):
         L1.append(list())
         for j in range(L1_dimensions):
-            L1[-1].append(generator(32))
+            L1[-1].append(generate_random_element(k))
     
     try:
         L1inv = np.linalg.inv(L1)
@@ -100,12 +80,13 @@ while True:
 
 
 # -------------------- Generating L2 -------------------- #
+
 L2_dimensions = v[u - 1]
 while True:
     for i in range(L2_dimensions):
         L2.append(list())
         for j in range(L2_dimensions):
-            L2[-1].append(generator(32))
+            L2[-1].append(generate_random_element(k))
     
     try:
         L2inv = np.linalg.inv(L2)
@@ -116,6 +97,7 @@ while True:
 
 
 # -------------------- Generating F -------------------- #
+
 for _i in range(u-1):
     F_layers.append(dict())
     layer = F_layers[-1]
@@ -124,32 +106,29 @@ for _i in range(u-1):
     layer['betas'] = list()
     layer['gammas'] = list()
     layer['etas'] = list()
-
-    # oi is number of polynomials
-    oi = v[_i + 1] - v[_i]
-    for k in range(oi):
+   
+    for i in range(v[_i]):
         layer['alphas'].append(list())
+        for j in range(v[_i]):
+            layer['alphas'][-1].append(generate_random_element(k))
+
+    for i in range(v[_i]):
         layer['betas'].append(list())
-        layer['gammas'].append(list())
+        for j in range(v[_i] + 1):
+            layer['betas'][-1].append(0)
+        for j in range(v[_i] + 1, n):
+            layer['betas'][-1].append(generate_random_element(k))
+    
+    layer['gammas'].append(list())
+    for i in range(n):
+        layer['gammas'][-1].append(generate_random_element(k))
 
-        # alphas
-        for i in range(oi):
-            layer['alphas'][-1].append(list())
-            for j in range(v[_i]):
-                layer['alphas'][-1][-1].append(generator(32))
+    layer['etas'].append(generate_random_element(k))
 
-        # betas
-        for i in range(v[_i]):
-            layer['betas'][-1].append(list())
-            for j in range(v[_i]):
-                layer['betas'][-1][-1].append(generator(32))
+# --------------- Construction of central map --------------- #
 
-        # gammas
-        for i in range(v[_i+1]):
-            layer['gammas'][-1].append(generator(32))
+m = n - v[0]            # Number of polynomials in the central map
 
-        # etas
-        layer['etas'].append(generator(32))
+vinegar_vars = list()   # Random vinegar variables
 
-
-# -------------------- Generating Public Key -------------------- #
+central_map = list()    # Holds the central map i.e the public key information
