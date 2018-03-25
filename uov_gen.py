@@ -1,12 +1,20 @@
 # -------------------- IMPORTS and Definitions -------------------- #
 import secrets, argparse, numpy as np
 
-# Generate random numbers below k
-def generate_random_element(k):
+# Generate non zero random numbers below k
+def generate_random_element(k) :
     num = secrets.randbelow(k)
     while not num :
         num = secrets.randbelow(k)
     return num
+
+# Generate 2D matrix with random elements below k
+def generate_random_matrix(x, y, k) :
+    mat = [[0] * y for i in range(x)]
+    for i in range(x) :
+        for j in range(y):
+            mat[i][j] = generate_random_element(k)
+    return mat
 
 # -------------------- Command Line Arguements -------------------- #
 parser = argparse.ArgumentParser(description='Asymmetric key generation using Unbalanced Oil and Vinegar Scheme.')
@@ -98,7 +106,8 @@ while True:
 
 # -------------------- Generating F -------------------- #
 
-for _i in range(u-1):
+for _i in range(u - 1):
+    
     F_layers.append(dict())
     layer = F_layers[-1]
     
@@ -106,24 +115,21 @@ for _i in range(u-1):
     layer['betas'] = list()
     layer['gammas'] = list()
     layer['etas'] = list()
-   
-    for i in range(v[_i]):
-        layer['alphas'].append(list())
-        for j in range(v[_i]):
-            layer['alphas'][-1].append(generate_random_element(k))
 
-    for i in range(v[_i]):
-        layer['betas'].append(list())
-        for j in range(v[_i] + 1):
-            layer['betas'][-1].append(0)
-        for j in range(v[_i] + 1, n):
-            layer['betas'][-1].append(generate_random_element(k))
+    alphas = generate_random_matrix(v[_i], v[_i], k)
+    betas = generate_random_matrix(v[_i + 1], v[_i + 1] , k)
+    gammas = generate_random_matrix(1, v[_i + 1], k)
+    etas = generate_random_element(k)
+
+    for i in range(v[_i + 1]):
+        for j in range(v[_i + 1]):
+            if i >= v[_i] or j < v[_i]:
+                betas[i][j] = 0
     
-    layer['gammas'].append(list())
-    for i in range(n):
-        layer['gammas'][-1].append(generate_random_element(k))
-
-    layer['etas'].append(generate_random_element(k))
+    layer['alphas'] = alphas
+    layer['betas'] = betas
+    layer['gammas'] = gammas
+    layer['etas'] = [etas]
 
 # --------------- Construction of central map --------------- #
 
