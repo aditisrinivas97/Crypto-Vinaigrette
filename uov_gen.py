@@ -67,7 +67,7 @@ while True :
 
     rnum = generate_random_element(k)
 
-    if rnum not in v :
+    if rnum not in v and rnum != n:
         v.append(rnum)
     
 # -------------------- Generating L1 -------------------- #
@@ -86,10 +86,13 @@ while True:
         del L1
         L1 = list()
 
+for i in range(L1_dimensions):
+    b1.append(generate_random_element(k))
+            
 
 # -------------------- Generating L2 -------------------- #
 
-L2_dimensions = v[u - 1]
+L2_dimensions = v[u - 1] - v[0]
 while True:
     for i in range(L2_dimensions):
         L2.append(list())
@@ -103,11 +106,13 @@ while True:
         del L2
         L2 = list()
 
+for i in range(L2_dimensions):
+    b2.append(generate_random_element(k))
 
 # -------------------- Generating F -------------------- #
 
 for _i in range(u - 1):
-    
+
     F_layers.append(dict())
     layer = F_layers[-1]
     
@@ -133,8 +138,92 @@ for _i in range(u - 1):
 
 # --------------- Construction of central map --------------- #
 
-m = n - v[0]            # Number of polynomials in the central map
+central_map = list()        # Holds the central map i.e the public key information
 
-vinegar_vars = list()   # Random vinegar variables
+no_solution = True
 
-central_map = list()    # Holds the central map i.e the public key information
+print(F_layers)
+
+while no_solution :
+
+    print("Starting")
+
+    no_solution = False
+
+    vinegar_vars = list()   # Random vinegar variables
+
+    for i in range(v[0]):
+        vinegar_vars.append(generate_random_element(k))
+
+    print("vins :", vinegar_vars)
+
+    for layer in range(u - 1):
+
+        vl = v[layer]
+        ol = v[layer + 1] - v[layer]
+
+        for o in range(ol):
+
+            p = [[0] * (vl + o) for i in range(vl + o)]
+
+            for i in range(vl):         # Multiply alphas
+                for j in range(vl):
+                    p[i][j] += F_layers[layer]['alphas'][i][j] * vinegar_vars[i] * vinegar_vars[j]
+
+            for i in range(vl):         # Multiply betas
+                for j in range(vl, vl + o):
+                    p[i][j] += F_layers[layer]['betas'][i][j] * vinegar_vars[i]
+            
+            central_map.append(p)
+
+        print("c", central_map)
+
+        equations = [[0] * (ol + vl) for i in range(ol)]
+            
+        for i in range(ol):
+            for j in range(vl + i):
+                for l in range(vl + i):
+                    if j < vl and l < vl :
+                        equations[i][0] += central_map[-ol+i][j][l]
+                    else :
+                        if j > vl :
+                            equations[i][j] += central_map[-ol+i][j][l]
+                        elif l > vl :
+                            equations[i][k] += central_map[-ol+i][j][l]
+                if j < vl :
+                    equations[i][0] += F_layers[layer]['gammas'][0][j] * vinegar_vars[j]
+                else:
+                    equations[i][j] += F_layers[layer]['gammas'][0][j]
+
+        print("eqn =", equations)
+        
+        np_eqn = [0 for i in range(ol)]
+        np_const = [0 for i in range(ol)]
+
+        for e in range(len(equations)):
+            np_eqn[e] = equations[e][-ol:]
+            np_const[e] = equations[e][0] + F_layers[layer]['etas'][0]
+        
+        ans = list()
+
+        print("NP", np_eqn, np_const)
+        
+        try :
+            ans = np.linalg.solve(np_eqn, np_const)
+
+        except :
+            central_map = list()
+            no_solution = True
+            break
+
+        print("ans =", ans)
+        
+        for a in ans :
+            vinegar_vars.append(a)
+
+print("v", v)
+print("L1", L1)
+print("L2", L2)
+print("Vinegar vars : ", vinegar_vars)
+print("Central map : ", central_map)
+            
