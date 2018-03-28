@@ -1,7 +1,6 @@
 # -------------------- IMPORTS and Definitions -------------------- #
 import secrets, argparse, numpy as np
 
-
 # Generate non zero random numbers below k
 def generate_random_element(k) :
     num = secrets.randbelow(k)
@@ -16,6 +15,64 @@ def generate_random_matrix(x, y, k) :
         for j in range(y):
             mat[i][j] = generate_random_element(k)
     return mat
+
+# Generates a polynomial with the given parameters
+def generate_polynomial(vl, ol, coefficients, vinegars, y):
+
+    polynomial = [[0] * (vl + ol) for i in range(ol + vl)]
+
+    for i in range(vl):
+        for j in range(vl):
+            polynomial[i][j] = coefficients['alphas'][i][j] * vinegars[i] * vinegars[j]
+    
+    for i in range(vl):
+        for j in range(vl, vl + ol):
+            polynomial[i][j] = coefficients['betas'][i][j] * vinegars[i]
+
+    flattened_polynomial = [0] * (vl + ol)
+    
+    for i in range(vl + ol):
+        for j in range(vl + ol):
+            if i < vl and j < vl:
+                flattened_polynomial[0] += polynomial[i][j]
+            else:
+                if i >= vl :
+                    flattened_polynomial[i] += polynomial[i][j]
+                if j >= vl :
+                    flattened_polynomial[j] += polynomial[i][j]
+
+    for i in range(vl + ol):
+        flattened_polynomial[i] += coefficients['gammas'][0][i]
+
+    flattened_polynomial = [sum(flattened_polynomial[0:vl])] + flattened_polynomial[vl:]
+
+    flattened_polynomial[0] -= y
+
+    flattened_polynomial[0] += coefficients['etas'][0]
+
+    return (flattened_polynomial, list(range(ol, ol + ol)))
+
+# Solves a set of linear equations given in polynomials
+def solve(polynomials, variables):
+
+    eqn_var = list()
+    eqn_con = list()
+
+    for eqn in polynomials:
+        print("EQN : ", eqn)
+        eqn_var.append(eqn[1:])
+        eqn_con.append(-eqn[0])
+    
+    print()
+    
+    sol = []
+
+    try:
+        sol = np.linalg.solve(np.array(eqn_var), np.array(eqn_con))
+    except:
+        return sol
+
+    return sol
 
 # -------------------- Command Line Arguements -------------------- #
 parser = argparse.ArgumentParser(description='Asymmetric key generation using Unbalanced Oil and Vinegar Scheme.')
@@ -39,197 +96,170 @@ with open(args.message_file, 'r') as file:
 '''
 
 # -------------------- Parameters for Rainbow Scheme -------------------- #
-class myConfigs: pass
-config = myConfigs()
+L1 = list()
+L1inv = None
+b1 = list()
 
-config.L1 = list()
-config.L1inv = None
-config.b1 = list()
-
-config.L2 = list()
-config.L2inv = None
-config.b2 = list()
+L2 = list()
+L2inv = None
+b2 = list()
 
 # Components of F
-config.F_layers = list()
-config.v = list()              # vinegar layers
+F_layers = list()
+v = list()              # vinegar layers
 
-config.n = 6        
-config.u = 3                   # number of layers
-config.k = 7                   # finite space of elements
+n = 6        
+u = 3                   # number of layers
+k = 7                   # finite space of elements
 
+y = (6, 2, 0, 5)
 
 # Components of public key
 coeff_quadratic = list()
 coeff_singular = list()
 coeff_scalars = list()
 
+v = [2, 4, 6]   # Remove after generation of y is done
+'''
 while True : 
-    if len(config.v) == config.u :
-        config.v.sort()
-        config.v[-1] = config.n
+    if len(v) == u :
+        v.sort()
+        v[-1] = n 
         break
 
-    rnum = generate_random_element(config.k)
+    rnum = generate_random_element(k)
 
-    if rnum not in config.v and rnum != config.n:
-        config.v.append(rnum)
-    
+    if rnum not in v and rnum != n:
+        v.append(rnum)
+'''
 # -------------------- Generating L1 -------------------- #
 
-L1_dimensions = config.v[config.u - 1] - config.v[0]
+L1_dimensions = v[u - 1] - v[0]
 while True:
     for i in range(L1_dimensions):
-        config.L1.append(list())
+        L1.append(list())
         for j in range(L1_dimensions):
-            config.L1[-1].append(generate_random_element(config.k))
+            L1[-1].append(generate_random_element(k))
     
     try:
-        config.L1inv = np.linalg.inv(config.L1)
+        L1inv = np.linalg.inv(L1)
         break
     except:
-        del config.L1
-        config.L1 = list()
+        del L1
+        L1 = list()
 
 for i in range(L1_dimensions):
-    config.b1.append(generate_random_element(config.k))
+    b1.append(generate_random_element(k))
             
 
 # -------------------- Generating L2 -------------------- #
 
-L2_dimensions = config.v[config.u - 1] - config.v[0]
+L2_dimensions = v[u - 1] - v[0]
 while True:
     for i in range(L2_dimensions):
-        config.L2.append(list())
+        L2.append(list())
         for j in range(L2_dimensions):
-            config.L2[-1].append(generate_random_element(config.k))
+            L2[-1].append(generate_random_element(k))
     
     try:
-        config.L2inv = np.linalg.inv(config.L2)
+        L2inv = np.linalg.inv(L2)
         break
     except:
-        del config.L2
-        config.L2 = list()
+        del L2
+        L2 = list()
 
 for i in range(L2_dimensions):
-    config.b2.append(generate_random_element(config.k))
+    b2.append(generate_random_element(k))
 
 # -------------------- Generating F -------------------- #
 
-for _i in range(config.u - 1):
+for _i in range(u - 1):
 
-    config.F_layers.append(dict())
-    layer = config.F_layers[-1]
-    
-    layer['alphas'] = list()
-    layer['betas'] = list()
-    layer['gammas'] = list()
-    layer['etas'] = list()
+    ol = v[_i + 1] - v[_i]
 
-    alphas = generate_random_matrix(config.v[_i], config.v[_i], config.k)
-    betas = generate_random_matrix(config.v[_i + 1], config.v[_i + 1] , config.k)
-    gammas = generate_random_matrix(1, config.v[_i + 1], config.k)
-    etas = generate_random_element(config.k)
+    F_layers.append(list())
 
-    for i in range(config.v[_i + 1]):
-        for j in range(config.v[_i + 1]):
-            if i >= config.v[_i] or j < config.v[_i]:
-                betas[i][j] = 0
-    
-    layer['alphas'] = alphas
-    layer['betas'] = betas
-    layer['gammas'] = gammas
-    layer['etas'] = [etas]
+    for i in range(ol):
+        F_layers[-1].append(dict())
+        layer = F_layers[-1][-1]
+        
+        layer['alphas'] = list()
+        layer['betas'] = list()
+        layer['gammas'] = list()
+        layer['etas'] = list()
+
+        alphas = generate_random_matrix(v[_i], v[_i], k)
+        betas = generate_random_matrix(v[_i + 1], v[_i + 1] , k)
+        gammas = generate_random_matrix(1, v[_i + 1], k)
+        etas = generate_random_element(k)
+
+        for i in range(v[_i + 1]):
+            for j in range(v[_i + 1]):
+                if i >= v[_i] or j < v[_i]:
+                    betas[i][j] = 0
+        
+        layer['alphas'] = alphas
+        layer['betas'] = betas
+        layer['gammas'] = gammas
+        layer['etas'] = [etas]
 
 # --------------- Construction of central map --------------- #
 
-central_map = list()        # Holds the central map i.e the public key information
-
 no_solution = True
 
-print(config.F_layers)
-
-while no_solution :
-
-    print("Starting")
+while no_solution:
 
     no_solution = False
 
     vinegar_vars = list()   # Random vinegar variables
 
-    for i in range(config.v[0]):
-        vinegar_vars.append(generate_random_element(config.k))
+    for i in range(v[0]):
+        vinegar_vars.append(generate_random_element(k))
 
-    print("vins :", vinegar_vars)
+    ycount = 0
+    pcount = 0
+    olcount = 0
 
-    for layer in range(config.u - 1):
+    polynomials = list()
 
-        vl = config.v[layer]
-        ol = config.v[layer + 1] - config.v[layer]
+    for _i in range(v[0], n):  # Number of polynomials in the central map
 
-        for o in range(config.v[0] + 1, config.n):
+        vl = -1         # Number of vinegar variables in current layer
+        ol = -1         # Number of oil variables in current layer
+        layer = -1      # Layer number
 
-            p = [[0] * (vl + o) for i in range(vl + o)]
+        for i in range(1, len(v)):
+            if _i <= v[i] :
+                ol = v[i] - v[i - 1]
+                vl = v[i - 1]
+                layer = i - 1 
+                break
 
-            for i in range(vl):         # Multiply alphas
-                for j in range(vl):
-                    p[i][j] += config.F_layers[layer]['alphas'][i][j] * vinegar_vars[i] * vinegar_vars[j]
+        p, variables = generate_polynomial(vl, ol, F_layers[layer][olcount], vinegar_vars, y[ycount])
 
-            for i in range(vl):         # Multiply betas
-                for j in range(vl, vl + o):
-                    p[i][j] += config.F_layers[layer]['betas'][i][j] * vinegar_vars[i]
+        polynomials.append(p)
+
+        pcount += 1
+
+        if len(variables) == pcount:
+            res = solve(polynomials, variables)
             
-            central_map.append(p)
+            if len(res) == 0:
+                no_solution = True
+                break
 
-        print("c", central_map)
-
-        equations = [[0] * (ol + vl) for i in range(ol)]
+            for x in res:
+                vinegar_vars.append(x)
             
-        for i in range(ol):
-            for j in range(vl + i):
-                for l in range(vl + i):
-                    if j < vl and l < vl :
-                        equations[i][0] += central_map[-ol+i][j][l]
-                    else :
-                        if j > vl :
-                            equations[i][j] += central_map[-ol+i][j][l]
-                        elif l > vl :
-                            equations[i][k] += central_map[-ol+i][j][l]
-                if j < vl :
-                    equations[i][0] += config.F_layers[layer]['gammas'][0][j] * vinegar_vars[j]
-                else:
-                    equations[i][j] += config.F_layers[layer]['gammas'][0][j]
+            polynomials = list()
+            pcount = 0
+            olcount = 0          
+        else:
+            olcount += 1
 
-        print("eqn =", equations)
-        
-        np_eqn = [0 for i in range(ol)]
-        np_const = [0 for i in range(ol)]
+        ycount += 1
 
-        for e in range(len(equations)):
-            np_eqn[e] = equations[e][-ol:]
-            np_const[e] = equations[e][0] + config.F_layers[layer]['etas'][0]
-        
-        ans = list()
+print("Vinegars for each layer (v) : ", v)
+print("Solution : ", vinegar_vars)
 
-        print("NP", np_eqn, np_const)
-        
-        try :
-            ans = np.linalg.solve(np_eqn, np_const)
-
-        except :
-            input()
-            central_map = list()
-            no_solution = True
-            break
-
-        print("ans =", ans)
-        
-        for a in ans :
-            vinegar_vars.append(a)
-
-print("v", config.v)
-print("L1", config.L1)
-print("L2", config.L2)
-print("Vinegar vars : ", vinegar_vars)
-print("Central map : ", central_map)
             
