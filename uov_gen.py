@@ -261,66 +261,79 @@ atexit.register(cleanup_atexit, config)
 
 # -------------------- Generating L1 and L2 -------------------- #
 
-config.L_dimensions = config.v[config.u - 1] - config.v[0]
+def generate_L_props(config):
+    config.L_dimensions = config.v[config.u - 1] - config.v[0]
 
-with open(config.datpath, 'wb') as lfile:
-    toWrite = dict()
-    toWrite['dim'] = config.L_dimensions
-    toWrite['generate_random_element'] = generate_random_element
-    toWrite['generate_random_matrix'] = generate_random_matrix
-    toWrite['k'] = config.k
-    dill.dump(toWrite, lfile)
+    with open(config.datpath, 'wb') as lfile:
+        toWrite = dict()
+        toWrite['dim'] = config.L_dimensions
+        toWrite['generate_random_element'] = generate_random_element
+        toWrite['generate_random_matrix'] = generate_random_matrix
+        toWrite['k'] = config.k
+        dill.dump(toWrite, lfile)
+
+    return config
+
+config = generate_L_props(config)
 
 
 # ---------- Spawn Generators ---------- #
+def spawn_Lgenerators(config):
+    for i in range(config.spawn):
+        _temp = sp.Popen([config.cmd, os.path.abspath('.') + '/' + config.genscript, config.datpath, str(i)])
+        config.generators.append(_temp)
+        print("Spawned generator", i)
+
+    config.spawn = set(range(config.spawn))
+    config.spawned = True
+    return config
+
+config = spawn_Lgenerators(config)
 
 
-for i in range(config.spawn):
-    _temp = sp.Popen([config.cmd, os.path.abspath('.') + '/' + config.genscript, config.datpath, str(i)])
-    config.generators.append(_temp)
-    print("Spawned generator", i)
+# --------------- Loading L1 and L2 --------------- #
+def load_Ls(config):
+    if args.v:
+        print("Retrieving Ls")
 
-config.spawn = set(range(config.spawn))
+    LPath = os.path.dirname(config.datpath)
 
+    while True:
+        found = False
+        for lf in config.spawn:
+            if config.generators[lf].poll() != None:
+                print("L1 from generator", lf)
+                with open(LPath + '/l' + str(lf), 'rb') as lfile:
+                    tempL = dill.load(lfile)
+                    config.L1 = tempL[0]
+                    config.L1inv = tempL[1]
+                os.remove(LPath + '/l' + str(lf))
+                config.spawn.remove(lf)
+                found = True
+                break
+        
+        if found:
+            break
 
-# -------------------- Generating b1 -------------------- #
-'''
-L1_dimensions = v[u - 1] - v[0]
-while True:
-    for i in range(L1_dimensions):
-        L1.append(list())
-        for j in range(L1_dimensions):
-            L1[-1].append(generate_random_element(k))
+    while True:
+        found = False
+        for lf in config.spawn:
+            if config.generators[lf].poll() != None:
+                print("L2 from generator", lf)
+                with open(LPath + '/l' + str(lf), 'rb') as lfile:
+                    tempL = dill.load(lfile)
+                    config.L2 = tempL[0]
+                    config.L2inv = tempL[1]
+                config.spawn.remove(lf)
+                found = True
+                break
+
+        if found:
+            break
     
-    try:
-        L1inv = np.linalg.inv(L1)
-        break
-    except:
-        del L1
-        L1 = list()'''
+    sp.Popen(['rm', '-r', '-f', LPath])
+    return config
 
-for i in range(config.L_dimensions):
-    config.b1.append(generate_random_element(config.k))
-            
-
-# -------------------- Generating L2 -------------------- #
-'''
-L2_dimensions = v[u - 1] - v[0]
-while True:
-    for i in range(L2_dimensions):
-        L2.append(list())
-        for j in range(L2_dimensions):
-            L2[-1].append(generate_random_element(k))
-    
-    try:
-        L2inv = np.linalg.inv(L2)
-        break
-    except:
-        del L2
-        L2 = list()'''
-
-for i in range(config.L_dimensions):
-    config.b2.append(generate_random_element(config.k))
 
 # -------------------- Generating F -------------------- #
 
@@ -339,9 +352,14 @@ while no_solution:
 
     if attempts == max_attempts:
         print("New Attempt")
+        if 'spawned' in vars(config):
+            cleanup_atexit(config)
         config.v = generate_vinegars(config.u, config.n)
         config.F_layers = generate_coefficients(config.u, config.v, config.k)
         config.y = generate_targets(message, config.v, config.n)
+        config = generate_L_props(config)
+        config = spawn_Lgenerators(config)
+
         attempts = 1
     else:
         attempts += 1
@@ -401,48 +419,17 @@ print("Solution : ", config.vinegar_vars)
 print("Y : ", config.y)
 
 
-# --------------- Loading L1 and L2 --------------- #
+# -------------------- Generating b1 -------------------- #
 
-if args.v:
-    print("Retrieving Ls")
+for i in range(config.L_dimensions):
+    config.b1.append(generate_random_element(config.k))
 
-LPath = os.path.dirname(config.datpath)
+# -------------------- Generating b2 -------------------- #
 
-while True:
-    found = False
-    for lf in config.spawn:
-        if config.generators[lf].poll() != None:
-            print("L1 from generator", lf)
-            with open(LPath + '/l' + str(lf), 'rb') as lfile:
-                tempL = dill.load(lfile)
-                config.L1 = tempL[0]
-                config.L1inv = tempL[1]
-            os.remove(LPath + '/l' + str(lf))
-            config.spawn.remove(lf)
-            found = True
-            break
-    
-    if found:
-        break
+for i in range(config.L_dimensions):
+    config.b2.append(generate_random_element(config.k))
 
-while True:
-    found = False
-    for lf in config.spawn:
-        if config.generators[lf].poll() != None:
-            print("L2 from generator", lf)
-            with open(LPath + '/l' + str(lf), 'rb') as lfile:
-                tempL = dill.load(lfile)
-                config.L2 = tempL[0]
-                config.L2inv = tempL[1]
-            config.spawn.remove(lf)
-            found = True
-            break
-
-    if found:
-        break
-
-
-sp.Popen(['rm', '-r', '-f', LPath])
+config = load_Ls(config)
 
 if args.vv :
     print("L1 :", config.L1)
