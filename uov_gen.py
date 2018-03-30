@@ -35,6 +35,84 @@ def generate_random_matrix(x, y, k) :
             mat[i][j] = generate_random_element(k)
     return mat
 
+# Generate vinegar variables for 'u' layers where the last layer has 'n' vinegars
+def generate_vinegars(u, n):
+    ret = list()
+
+    while True : 
+        if len(ret) == u :
+            ret.sort()
+            ret[-1] = n
+            break
+
+        rnum = generate_random_element(n)
+
+        if rnum not in ret and rnum != n:
+            ret.append(rnum)
+
+    return ret
+
+# Generates Y or the set of targets
+def generate_targets(message, v, n):
+
+    ret = list()
+
+    parts = n - v[0]          # Number of parts to split message into
+    part = len(message) // (parts + 1)      # Length of each part
+    part += 1
+
+    k = 0
+    for i in range(parts):
+        yPart = 0
+        for j in range(part):
+            try:
+                yPart = yPart | ord(message[k])
+                k += 1
+            except IndexError:
+                ret.append(yPart)
+                break
+        ret.append(yPart)
+
+    return ret
+
+
+# Generate F - coefficients below 'k' for every polynomial 
+def generate_coefficients(u, v, k):
+
+    ret = list()
+
+    for _i in range(u - 1):
+
+        ol = v[_i + 1] - v[_i]
+
+        ret.append(list())
+
+        for i in range(ol):
+            ret[-1].append(dict())
+            layer = ret[-1][-1]
+            
+            layer['alphas'] = list()
+            layer['betas'] = list()
+            layer['gammas'] = list()
+            layer['etas'] = list()
+
+            alphas = generate_random_matrix(v[_i], v[_i], k)
+            betas = generate_random_matrix(v[_i + 1], v[_i + 1] , k)
+            gammas = generate_random_matrix(1, v[_i + 1], k)
+            etas = generate_random_element(k)
+
+            for i in range(v[_i + 1]):
+                for j in range(v[_i + 1]):
+                    if i >= v[_i] or j < v[_i]:
+                        betas[i][j] = 0
+            
+            layer['alphas'] = alphas
+            layer['betas'] = betas
+            layer['gammas'] = gammas
+            layer['etas'] = [etas]
+    
+    return ret
+
 
 # Generates a polynomial with the given parameters
 def generate_polynomial(vl, ol, coefficients, vinegars, y):
@@ -73,7 +151,7 @@ def generate_polynomial(vl, ol, coefficients, vinegars, y):
     return (flattened_polynomial, list(range(ol, ol + ol)))
 
 
-# Solves a set of linear equations given in polynomials
+# Solves a set of linear equations given in 'polynomials'
 def solve(polynomials, variables):
 
     eqn_var = list()
@@ -134,8 +212,8 @@ config.b2 = list()
 config.F_layers = list()
 config.v = list()              # vinegar layers
 
-config.n = 50        
-config.u = 3                   # number of layers
+config.n = 33        
+config.u = 5                   # number of layers
 config.k = 128                   # finite space of elements -- standard ASCII
 
 #y = (6, 2, 0, 5)
@@ -148,38 +226,13 @@ coeff_scalars = list()
 #v = [2, 4, 6]   # Remove after generation of y is done
 config.y = list()
 
-while True : 
-    if len(config.v) == config.u :
-        config.v.sort()
-        config.v[-1] = config.n
-        break
-
-    rnum = generate_random_element(config.n)
-
-    if rnum not in config.v and rnum != config.n:
-        config.v.append(rnum)
+config.v = generate_vinegars(config.u, config.n)
 
 
 if args.v:
     print("V :", config.v)
 
-
-parts = config.n - config.v[0]                        # Number of parts to split message into
-part = len(message) // (parts + 1)      # Length of each part
-part += 1
-
-
-k = 0
-for i in range(parts):
-    yPart = 0
-    for j in range(part):
-        try:
-            yPart = yPart | ord(message[k])
-            k += 1
-        except IndexError:
-            config.y.append(yPart)
-            break
-    config.y.append(yPart)
+config.y = generate_targets(message, config.v, config.n)
 
 
 if args.v:
@@ -271,42 +324,28 @@ for i in range(config.L_dimensions):
 
 # -------------------- Generating F -------------------- #
 
-for _i in range(config.u - 1):
-
-    ol = config.v[_i + 1] - config.v[_i]
-
-    config.F_layers.append(list())
-
-    for i in range(ol):
-        config.F_layers[-1].append(dict())
-        layer = config.F_layers[-1][-1]
-        
-        layer['alphas'] = list()
-        layer['betas'] = list()
-        layer['gammas'] = list()
-        layer['etas'] = list()
-
-        alphas = generate_random_matrix(config.v[_i], config.v[_i], config.k)
-        betas = generate_random_matrix(config.v[_i + 1], config.v[_i + 1] , config.k)
-        gammas = generate_random_matrix(1, config.v[_i + 1], config.k)
-        etas = generate_random_element(config.k)
-
-        for i in range(config.v[_i + 1]):
-            for j in range(config.v[_i + 1]):
-                if i >= config.v[_i] or j < config.v[_i]:
-                    betas[i][j] = 0
-        
-        layer['alphas'] = alphas
-        layer['betas'] = betas
-        layer['gammas'] = gammas
-        layer['etas'] = [etas]
+config.F_layers = generate_coefficients(config.u, config.v, config.k)
 
 # --------------- Construction of central map --------------- #
+
+max_attempts = 30
+attempts = 0
 
 no_solution = True
 
 while no_solution:
-    print("LOOP")
+
+    #print("LOOP")
+
+    if attempts == max_attempts:
+        print("New Attempt")
+        config.v = generate_vinegars(config.u, config.n)
+        config.F_layers = generate_coefficients(config.u, config.v, config.k)
+        config.y = generate_targets(message, config.v, config.n)
+        attempts = 1
+    else:
+        attempts += 1
+
     no_solution = False
 
     config.vinegar_vars = list()   # Random vinegar variables
@@ -327,12 +366,12 @@ while no_solution:
         layer = -1      # Layer number
 
         for i in range(1, len(config.v)):
-            if _i <= config.v[i] :
+            if _i < config.v[i] :
                 ol = config.v[i] - config.v[i - 1]
                 vl = config.v[i - 1]
                 layer = i - 1 
                 break
-
+        
         p, variables = generate_polynomial(vl, ol, config.F_layers[layer][olcount], config.vinegar_vars, config.y[ycount])
 
         polynomials.append(p)
