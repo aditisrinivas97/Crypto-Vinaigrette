@@ -4,21 +4,6 @@ import dill, errno, os, subprocess as sp, atexit
 from Affine import *
 
 
-# exit handler, cleans up things
-def cleanup_atexit(config):
-    print("Cleaning up...")
-    LPath = os.path.dirname(config.datpath)
-
-    for lf in config.spawn:
-        if config.generators[lf].poll() == None:
-            try:
-                config.generators[lf].terminate()
-                os.remove(LPath + '/l' + str(lf))
-            except Exception as e:
-                print("Exception", e)
-                pass
-    print("Done...")
-
 
 # Generate non zero random numbers below k
 def generate_random_element(k) :
@@ -302,5 +287,20 @@ polynomial = generate_publickey(config)
 print(polynomial.quadratic, len(polynomial.quadratic), len(polynomial.quadratic[0]), len(polynomial.quadratic[0][0]))
 print(polynomial.linear, len(polynomial.linear), len(polynomial.linear[0]))
 print(polynomial.constant, len(polynomial.constant))
+
+# Compaction
+for i in range(len(polynomial.quadratic)):
+    for j in range(len(polynomial.quadratic[i])):
+        if i > j:   # lower triangle
+            polynomial.quadratic[j][i] += polynomial.quadratic[i][j]
+            polynomial.quadratic[j][i] = 0
+
+compact_quads = list()
+for i in range(len(polynomial.quadratic)):
+    for j in range(i, len(polynomial.quadratic[i])):
+        compact_quads.append(polynomial.quadratic[i][j])
+
+compact_quads_store = dill.dumps(compact_quads)
+print(compact_quads_store, len(compact_quads_store))
 
 # ------------------------ End of File ------------------------ #
