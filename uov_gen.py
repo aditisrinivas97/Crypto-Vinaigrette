@@ -1,6 +1,7 @@
 # -------------------- IMPORTS and Definitions -------------------- #
 import secrets, argparse, numpy as np
 import dill, errno, os, subprocess as sp, atexit
+from Affine import *
 
 
 # exit handler, cleans up things
@@ -75,7 +76,6 @@ def generate_targets(message, v, n):
 
     return ret
 
-
 # Generate F - coefficients below 'k' for every polynomial 
 def generate_coefficients(u, v, k):
 
@@ -97,15 +97,10 @@ def generate_coefficients(u, v, k):
             layer['etas'] = list()
 
             alphas = generate_random_matrix(v[_i], v[_i], k)
-            betas = generate_random_matrix(v[_i + 1], v[_i + 1] , k)
+            betas = generate_random_matrix(v[_i + 1] - v[_i], v[_i] , k)
             gammas = generate_random_matrix(1, v[_i + 1], k)
             etas = generate_random_element(k)
 
-            for i in range(v[_i + 1]):
-                for j in range(v[_i + 1]):
-                    if i >= v[_i] or j < v[_i]:
-                        betas[i][j] = 0
-            
             layer['alphas'] = alphas
             layer['betas'] = betas
             layer['gammas'] = gammas
@@ -113,43 +108,96 @@ def generate_coefficients(u, v, k):
     
     return ret
 
+# Generates a polynomial for the map F 
+def generate_polynomial(vl, ol, pcount, coefficients, polynomial, config):
 
-# Generates a polynomial with the given parameters
-def generate_polynomial(vl, ol, coefficients, vinegars, y):
+    # Composition of F and L2
+    for _i in range(ol):
 
-    polynomial = [[0] * (vl + ol) for i in range(ol + vl)]
+        # Multiply Alphas
+        for i in range(vl):
+            for j in range(vl):
+                temp = np.multiply(coefficients[_i]['alphas'][i][j], config.L2[i])
+                polynomial.quadratic[pcount + _i] = (np.add(np.array(polynomial.quadratic[pcount + _i]), np.multiply((np.array(temp)).reshape(config.n, 1), (np.array(config.L2[j])).reshape(1, config.n)))).tolist()
+                temp = np.multiply(config.b2[j], temp)
+                polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
+                temp = np.multiply(coefficients[_i]['alphas'][i][j], config.L2[j])
+                temp = np.multiply(config.b2[i], temp)
+                polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()     
+                temp = coefficients[_i]['alphas'][i][j] * config.b2[i]
+                polynomial.constant[pcount + _i] += temp * config.b2[j]
 
-    for i in range(vl):
-        for j in range(vl):
-            polynomial[i][j] = coefficients['alphas'][i][j] * vinegars[i] * vinegars[j]
+        # Multiply Betas    
+        for i in range(ol):
+            for j in range(vl):
+                temp = np.multiply(coefficients[_i]['betas'][i][j], config.L2[i + vl])
+                polynomial.quadratic[pcount + _i] = (np.add(np.array(polynomial.quadratic[pcount + _i]), np.multiply((np.array(temp)).reshape(config.n, 1), (np.array(config.L2[j])).reshape(1, config.n)))).tolist()
+                temp = np.multiply(config.b2[j], temp)
+                polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
+                temp = np.multiply(coefficients[_i]['betas'][i][j], config.L2[j])
+                temp = np.multiply(config.b2[i + vl], temp)
+                polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
+                temp = coefficients[_i]['betas'][i][j] * config.b2[i + vl]
+                polynomial.constant[pcount + _i] += temp * config.b2[j]
+        
+        # Multiply Gammas    
+        for i in range(vl + ol):
+            temp = np.multiply(coefficients[_i]['gammas'][0][i], config.L2[i])
+            polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
+            polynomial.constant[pcount + _i] += coefficients[_i]['gammas'][0][i] * config.b2[i]
+        
+        # Add Eta
+        polynomial.constant[pcount + _i] += coefficients[_i]['etas'][0]
     
-    for i in range(vl):
-        for j in range(vl, vl + ol):
-            polynomial[i][j] = coefficients['betas'][i][j] * vinegars[i]
+    # Composition of L1 and F * L2
+    temp_quadratic = [[[0] * config.n for i in range(config.n)] for j in  range(config.n - config.v[0])]
+    temp_linear = [[0] * config.n for i in range(config.n - config.v[0])]
+    temp_constant = [0] * (config.n - config.v[0])
 
-    flattened_polynomial = [0] * (vl + ol)
+    for i in range(config.n - config.v[0]):
+        for j in range(len(config.L1)):
+            temp_quadratic[i] = (np.add(np.array(temp_quadratic[i]), np.multiply(config.L1[i][j], polynomial.quadratic[j]))).tolist()
+            temp_linear[i] = (np.add(np.array(temp_linear[i]), np.multiply(config.L1[i][j], polynomial.linear[j]))).tolist()
+            temp_constant[i] += config.L1[i][j] * polynomial.constant[j] 
+        temp_constant[i] += config.b1[i]
+
+    # Assign the computed values for L1 * F * L2
+    polynomial.quadratic = temp_quadratic
+    polynomial.linear = temp_linear
+    polynomial.constant = temp_constant
+
+    return
+
+def generate_publickey(config):
     
-    for i in range(vl + ol):
-        for j in range(vl + ol):
-            if i < vl and j < vl:
-                flattened_polynomial[0] += polynomial[i][j]
-            else:
-                if i >= vl :
-                    flattened_polynomial[i] += polynomial[i][j]
-                if j >= vl :
-                    flattened_polynomial[j] += polynomial[i][j]
+    config.L2 = config.L2.retrieve()
+    config.L2, config.L2inv, config.b2 = config.L2['l'], config.L2['linv'], config.L2['b']
 
-    for i in range(vl + ol):
-        flattened_polynomial[i] += coefficients['gammas'][0][i]
+    config.L1 = config.L1.retrieve()
+    config.L1, config.L1inv, config.b1 = config.L1['l'], config.L1['linv'], config.L1['b']
 
-    flattened_polynomial = [sum(flattened_polynomial[0:vl])] + flattened_polynomial[vl:]
+    class myPolynomial: pass
+    polynomial = myPolynomial()
+    
+    polynomial.quadratic = [[[0] * config.n for i in range(config.n)] for j in  range(config.n - config.v[0])]
+    polynomial.linear = [[0] * config.n for i in range(config.n - config.v[0])]
+    polynomial.constant = [0] * (config.n - config.v[0])
 
-    flattened_polynomial[0] -= y
+    olcount = 0
+    pcount = 0
 
-    flattened_polynomial[0] += coefficients['etas'][0]
+    for _i in range(config.u - 1):  
+        
+        layer = _i
+        vl = len(config.F_layers[layer][0]['alphas'][0])
+        ol = len(config.F_layers[layer][0]['betas'])
 
-    return (flattened_polynomial, list(range(ol, ol + ol)))
+        generate_polynomial(vl, ol, pcount, config.F_layers[layer], polynomial, config)
 
+        pcount += ol
+
+    return polynomial
+       
 
 # Solves a set of linear equations given in 'polynomials'
 def solve(polynomials, variables):
@@ -188,11 +236,8 @@ args = parser.parse_args()
 if args.vv :
     args.v = True
 
-'''
 # -------------------- Retrieve Message -------------------- #
-with open(args.message_file, 'r') as file:
-    message = file.read()
-'''
+
 with open('testFile.txt', 'r') as file:
     message = file.read()
 
@@ -212,9 +257,9 @@ config.b2 = list()
 config.F_layers = list()
 config.v = list()              # vinegar layers
 
-config.n = 33        
+config.n = 32        
 config.u = 5                   # number of layers
-config.k = 128                   # finite space of elements -- standard ASCII
+config.k = 8                   # finite space of elements -- standard ASCII
 
 #y = (6, 2, 0, 5)
 
@@ -238,201 +283,24 @@ config.y = generate_targets(message, config.v, config.n)
 if args.v:
     print("Y :", config.y)
 
-
-# -------------------- Setup Work for Generating Ls -------------------- #
-
-config.datpath = os.path.abspath('.') + '/.dat/params'
-if not os.path.exists(os.path.dirname(config.datpath)):
-    try:
-        os.makedirs(os.path.dirname(config.datpath))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-
-
-config.spawn = 10       # Child process to spawn for L1 and L2 each
-config.cmd = 'python3'
-config.genscript = 'l_generator.py'
-config.generators = list()
-
-# Register exit handler
-atexit.register(cleanup_atexit, config)
-
-
-# -------------------- Generating L1 and L2 -------------------- #
-
-def generate_L_props(config):
-    config.L_dimensions = config.v[config.u - 1] - config.v[0]
-
-    with open(config.datpath, 'wb') as lfile:
-        toWrite = dict()
-        toWrite['dim'] = config.L_dimensions
-        toWrite['generate_random_element'] = generate_random_element
-        toWrite['generate_random_matrix'] = generate_random_matrix
-        toWrite['k'] = config.k
-        dill.dump(toWrite, lfile)
-
-    return config
-
-config = generate_L_props(config)
-
-
-# ---------- Spawn Generators ---------- #
-def spawn_Lgenerators(config):
-    for i in range(config.spawn):
-        _temp = sp.Popen([config.cmd, os.path.abspath('.') + '/' + config.genscript, config.datpath, str(i)])
-        config.generators.append(_temp)
-        print("Spawned generator", i)
-
-    config.spawn = set(range(config.spawn))
-    config.spawned = True
-    return config
-
-config = spawn_Lgenerators(config)
-
-
-# --------------- Loading L1 and L2 --------------- #
-def load_Ls(config):
-    if args.v:
-        print("Retrieving Ls")
-
-    LPath = os.path.dirname(config.datpath)
-
-    while True:
-        found = False
-        for lf in config.spawn:
-            if config.generators[lf].poll() != None:
-                print("L1 from generator", lf)
-                with open(LPath + '/l' + str(lf), 'rb') as lfile:
-                    tempL = dill.load(lfile)
-                    config.L1 = tempL[0]
-                    config.L1inv = tempL[1]
-                os.remove(LPath + '/l' + str(lf))
-                config.spawn.remove(lf)
-                found = True
-                break
-        
-        if found:
-            break
-
-    while True:
-        found = False
-        for lf in config.spawn:
-            if config.generators[lf].poll() != None:
-                print("L2 from generator", lf)
-                with open(LPath + '/l' + str(lf), 'rb') as lfile:
-                    tempL = dill.load(lfile)
-                    config.L2 = tempL[0]
-                    config.L2inv = tempL[1]
-                config.spawn.remove(lf)
-                found = True
-                break
-
-        if found:
-            break
-    
-    sp.Popen(['rm', '-r', '-f', LPath])
-    return config
-
-
 # -------------------- Generating F -------------------- #
 
 config.F_layers = generate_coefficients(config.u, config.v, config.k)
 
-# --------------- Construction of central map --------------- #
+# -------------------- Generating L1 and L2 -------------------- #
 
-max_attempts = 30
-attempts = 0
+config.L1 = Affine(config.n-config.v[0], config.k)
+config.L1.start_generators(20)
 
-no_solution = True
+config.L2 = Affine(config.n, config.k)
+config.L2.start_generators(20)
 
-while no_solution:
+# -------------------- Generating Public Key -------------------- #
 
-    #print("LOOP")
+polynomial = generate_publickey(config)
 
-    if attempts == max_attempts:
-        print("New Attempt")
-        if 'spawned' in vars(config):
-            cleanup_atexit(config)
-        config.v = generate_vinegars(config.u, config.n)
-        config.F_layers = generate_coefficients(config.u, config.v, config.k)
-        config.y = generate_targets(message, config.v, config.n)
-        config = generate_L_props(config)
-        config = spawn_Lgenerators(config)
+print(polynomial.quadratic, len(polynomial.quadratic), len(polynomial.quadratic[0]), len(polynomial.quadratic[0][0]))
+print(polynomial.linear, len(polynomial.linear), len(polynomial.linear[0]))
+print(polynomial.constant, len(polynomial.constant))
 
-        attempts = 1
-    else:
-        attempts += 1
-
-    no_solution = False
-
-    config.vinegar_vars = list()   # Random vinegar variables
-
-    for i in range(config.v[0]):
-        config.vinegar_vars.append(generate_random_element(config.k))
-
-    ycount = 0
-    pcount = 0
-    olcount = 0
-
-    polynomials = list()
-
-    for _i in range(config.v[0], config.n):  # Number of polynomials in the central map
-
-        vl = -1         # Number of vinegar variables in current layer
-        ol = -1         # Number of oil variables in current layer
-        layer = -1      # Layer number
-
-        for i in range(1, len(config.v)):
-            if _i < config.v[i] :
-                ol = config.v[i] - config.v[i - 1]
-                vl = config.v[i - 1]
-                layer = i - 1 
-                break
-        
-        p, variables = generate_polynomial(vl, ol, config.F_layers[layer][olcount], config.vinegar_vars, config.y[ycount])
-
-        polynomials.append(p)
-
-        pcount += 1
-
-        if len(variables) == pcount:
-            res = solve(polynomials, variables)
-            
-            if len(res) == 0:
-                no_solution = True
-                break
-
-            for x in res:
-                config.vinegar_vars.append(x)
-            
-            polynomials = list()
-            pcount = 0
-            olcount = 0          
-        else:
-            olcount += 1
-
-        ycount += 1
-
-print("Vinegars for each layer (v) : ", config.v)
-print("Solution : ", config.vinegar_vars)
-print("Y : ", config.y)
-
-
-# -------------------- Generating b1 -------------------- #
-
-for i in range(config.L_dimensions):
-    config.b1.append(generate_random_element(config.k))
-
-# -------------------- Generating b2 -------------------- #
-
-for i in range(config.L_dimensions):
-    config.b2.append(generate_random_element(config.k))
-
-config = load_Ls(config)
-
-if args.vv :
-    print("L1 :", config.L1)
-    print("L1inv :", config.L1inv)
-    print("L2 :", config.L2)
-    print("L2inv :", config.L2inv)
+# ------------------------ End of File ------------------------ #
