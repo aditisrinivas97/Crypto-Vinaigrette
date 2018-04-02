@@ -1,6 +1,7 @@
 # Extras
 .dat/
 test.py
+*.rkey
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

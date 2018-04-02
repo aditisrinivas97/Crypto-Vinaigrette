@@ -8,11 +8,20 @@ import secrets, argparse, numpy as np
 import dill, errno, os, subprocess as sp, atexit
 from Affine import *
 
+# -------------------- Command Line Args -------------------- #
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-v', type=int, nargs='?', default=0)
+args = parser.parse_args()
+if args.v is None:
+    args.v = 0 
+
+
 # -------------------- Module -------------------- #
 
 class rainbowKeygen:
 
-    def __init__(self, verbosity = False):
+    def __init__(self, n = 32, u = 5, k = 8):
         '''
         Initialise the key object
 
@@ -25,27 +34,28 @@ class rainbowKeygen:
         b1, b2 - Translation elements for the corresponsing affine maps
 
         '''
-        self.n = 32        
-        self.u = 5                  
-        self.k = 8
-        self.verbosity = verbosity
+        self.n = n        
+        self.u = u                  
+        self.k = k
         self.v = self.generate_vinegars()     
         self.F_layers = self.generate_coefficients()
 
         self.L1 = Affine(self.n - self.v[0], self.k)
         self.L1.start_generators(20)
-        self.L1 = self.L1.retrieve()
-        self.L1, self.L1inv, self.b1 = self.L1['l'], self.L1['linv'], self.L1['b'] 
         
         self.L2 = Affine(self.n, self.k)
-        self.L2.start_generators(20)    
+        self.L2.start_generators(20)
+
+        self.L1 = self.L1.retrieve()
+        self.L1, self.L1inv, self.b1 = self.L1['l'], self.L1['linv'], self.L1['b'] 
+
         self.L2 = self.L2.retrieve()
         self.L2, self.L2inv, self.b2 = self.L2['l'], self.L2['linv'], self.L2['b']
 
-        if self.verbosity:
+        if args.v:
             print("Initialised with n :", self.n, ", k :", self.k, ", u :", self.u, "v :", self.v)
 
-    def generate_random_element(self, k) :
+    def generate_random_element(k) :
         '''
         Generate a cryptographically secure random number below k
         ''' 
@@ -54,14 +64,14 @@ class rainbowKeygen:
             num = secrets.randbelow(k)
         return num
 
-    def generate_random_matrix(self, x, y) :
+    def generate_random_matrix(x, y, k) :
         '''
         Generate 2D matrix with random elements below k
         '''
         mat = [[0] * y for i in range(x)]
         for i in range(x) :
             for j in range(y):
-                mat[i][j] = self.generate_random_element(self.k)
+                mat[i][j] = rainbowKeygen.generate_random_element(k)
         return mat
     
     def generate_vinegars(self):
@@ -76,12 +86,12 @@ class rainbowKeygen:
                 ret[-1] = self.n
                 break
 
-            rnum = self.generate_random_element(self.n)
+            rnum = rainbowKeygen.generate_random_element(self.n)
 
             if rnum not in ret and rnum != self.n:
                 ret.append(rnum)
 
-        if self.verbosity:
+        if args.v:
             print("Done generating vinegar variable count for each layer")
 
         return ret
@@ -107,17 +117,17 @@ class rainbowKeygen:
                 layer['gammas'] = list()
                 layer['etas'] = list()
 
-                alphas = self.generate_random_matrix(self.v[_i], self.v[_i])
-                betas = self.generate_random_matrix(self.v[_i + 1] - self.v[_i], self.v[_i])
-                gammas = self.generate_random_matrix(1, self.v[_i + 1])
-                etas = self.generate_random_element(self.k)
+                alphas = rainbowKeygen.generate_random_matrix(self.v[_i], self.v[_i], self.k)
+                betas = rainbowKeygen.generate_random_matrix(self.v[_i + 1] - self.v[_i], self.v[_i], self.k)
+                gammas = rainbowKeygen.generate_random_matrix(1, self.v[_i + 1], self.k)
+                etas = rainbowKeygen.generate_random_element(self.k)
 
                 layer['alphas'] = alphas
                 layer['betas'] = betas
                 layer['gammas'] = gammas
                 layer['etas'] = [etas]
         
-        if self.verbosity:
+        if args.v:
             print("Done generating F map for each layer")
         
         return ret
@@ -188,15 +198,15 @@ class rainbowKeygen:
         Generates the public key
         '''
 
-        if self.verbosity:
-            print("Generating public key..")
+        if args.v:
+            print("Generating public key...")
 
         class myPolynomial: pass
-        polynomial = myPolynomial()
+        self.polynomial = myPolynomial()
         
-        polynomial.quadratic = [[[0] * self.n for i in range(self.n)] for j in  range(self.n - self.v[0])]
-        polynomial.linear = [[0] * self.n for i in range(self.n - self.v[0])]
-        polynomial.constant = [0] * (self.n - self.v[0])
+        self.polynomial.quadratic = [[[0] * self.n for i in range(self.n)] for j in  range(self.n - self.v[0])]
+        self.polynomial.linear = [[0] * self.n for i in range(self.n - self.v[0])]
+        self.polynomial.constant = [0] * (self.n - self.v[0])
 
         olcount = 0
         pcount = 0
@@ -207,33 +217,191 @@ class rainbowKeygen:
             vl = len(self.F_layers[layer][0]['alphas'][0])
             ol = len(self.F_layers[layer][0]['betas'])
 
-            self.generate_polynomial(vl, ol, pcount, self.F_layers[layer], polynomial)
+            self.generate_polynomial(vl, ol, pcount, self.F_layers[layer], self.polynomial)
 
             pcount += ol
         
         # Compaction
-        for i in range(len(polynomial.quadratic)):
-            for j in range(len(polynomial.quadratic[i])):
+        for i in range(len(self.polynomial.quadratic)):
+            for j in range(len(self.polynomial.quadratic[i])):
                 if i > j:   # lower triangle
-                    polynomial.quadratic[j][i] += polynomial.quadratic[i][j]
-                    polynomial.quadratic[j][i] = 0
+                    self.polynomial.quadratic[j][i] += self.polynomial.quadratic[i][j]
+                    self.polynomial.quadratic[i][j] = 0
 
         compact_quads = list()
-        for i in range(len(polynomial.quadratic)):
-            for j in range(i, len(polynomial.quadratic[i])):
-                compact_quads.append(polynomial.quadratic[i][j])
+        for i in range(len(self.polynomial.quadratic)):
+            for j in range(i, len(self.polynomial.quadratic[i])):
+                compact_quads.append(self.polynomial.quadratic[i][j])
 
-        compact_quads_store = dill.dumps(compact_quads)
+        class pubKeyClass: pass
+
+        pubKey = pubKeyClass()
+        pubKey.n = self.n
+        pubKey.v0 = self.v[0]
+        pubKey.k = self.k
+        pubKey.quads = compact_quads
+        pubKey.linear = self.polynomial.linear
+        pubKey.consts = self.polynomial.constant
         
-        if self.verbosity:
+        with open('rPub.rkey', 'wb') as pubFile:
+            dill.dump(pubKey, pubFile)
+        
+        if args.v:
             print("Done")
 
+    def generate_privatekey(self):
+        '''
+        Generates the private key.
+        '''
+        
+        if args.v:
+            print("Generating private key...")
+        class privKeyClass: pass
+
+        privKey = privKeyClass()
+        privKey.l1 = self.L1
+        privKey.l1inv = self.L1inv
+        privKey.b1 = self.b1
+        privKey.l2 = self.L2
+        privKey.l2inv = self.L2inv
+        privKey.b2 = self.b2
+        privKey.F_layers = self.F_layers
+        privKey.k = self.k
+
+        with open('rPriv.rkey', 'wb') as privFile:
+            dill.dump(privKey, privFile)
+
+        if args.v:
+            print("Done.")
+
+
+    def generate_targets(n, v0, k, message):
+        '''
+        Generates Y or the set of targets
+        '''
+        ret = list()
+
+        parts = n - v0          # Number of parts to split message into
+        part = len(message) // (parts + 1)      # Length of each part
+        part += 1
+
+        k = 0
+        for i in range(parts):
+            yPart = 0
+            for j in range(part):
+                try:
+                    yPart = yPart | ord(message[k])
+                    k += 1
+                except IndexError:
+                    ret.append(yPart)
+                    break
+            ret.append(yPart)
+
+        return ret
+
+    def sign(keyFile, msgFile):
+        '''
+        Sign message at msgFile with private key at keyFile!
+        '''
+        
+        if args.v:
+            print("Signing...")
+        # Load private key
+        with open(keyFile, 'rb') as kFile:
+            privKey = dill.load(kFile)
+            privKey.n = len(privKey.F_layers[-1][0]['alphas'][0]) + len(privKey.F_layers[-1][0]['betas'])
+            privKey.layers = len(privKey.F_layers)
+
+        # Load message (as n dimensional vector)
+        with open(msgFile, 'r') as mFile:
+            message = mFile.read()
+            y = rainbowKeygen.generate_targets(privKey.n, len(privKey.F_layers[0][0]['alphas'][0]), privKey.k, message)
+        
+        # Apply L1^(-1)
+        ydash = [a-b for a, b in zip(y, privKey.b1)]
+        privKey.l1inv = np.matrix(privKey.l1inv)
+        ydash = np.matrix(ydash)
+
+        ydash = ydash * privKey.l1inv
+        ydash = np.array(ydash)[0]
+
+        while True:
+            try:
+                # Generate v0 number of random vinegars as x0, x1...xv0
+                x = list()
+                for i in range(len(privKey.F_layers[0][0]['alphas'][0])):
+                    x.append(rainbowKeygen.generate_random_element(privKey.k))
+
+                # Solve polynomials layer by layer, finding ol oils and adding them to vinegars (i.e, x)
+                for layer in range(privKey.layers):
+                    vl = len(privKey.F_layers[layer][0]['alphas'][0])
+                    ol = len(privKey.F_layers[layer][0]['betas'])
+                    equations = [[0] * ol for i in range(ol)]
+                    consts = [0] * ol
+                    
+                    for i in range(ol):
+                        for j in range(vl):
+                            for k in range(vl):
+                                consts[i]
+                                privKey.F_layers[layer][i]['alphas'][j][k]
+                                x[j]
+                                x[k]
+                                consts[i] += privKey.F_layers[layer][i]['alphas'][j][k] * x[j] * x[k]
+
+                        for j in range(ol):
+                            for k in range(vl):
+                                equations[i][j]
+                                privKey.F_layers[layer][i]['betas'][j][k]
+                                x[k]
+                                equations[i][j] += privKey.F_layers[layer][i]['betas'][j][k] * x[k]
+
+                        for j in range(ol+vl):
+                            if j < vl:
+                                consts[i]
+                                privKey.F_layers[layer][i]['gammas'][0][j]
+                                x[j]
+                                consts[i] += privKey.F_layers[layer][i]['gammas'][0][j] * x[j]
+                            else:
+                                equations[i][j-vl]
+                                privKey.F_layers[layer][i]['gammas'][0][j]
+                                equations[i][j-vl] += privKey.F_layers[layer][i]['gammas'][0][j]
+
+                        consts[i]
+                        privKey.F_layers[layer][i]['etas'][0]
+                        consts[i] += privKey.F_layers[layer][i]['etas'][0]
+
+                    for i in range(len(consts)):
+                        consts[i] = -consts[i] + ydash[i]
+
+                    if args.v >= 2:
+                        print(equations, consts)
+                    solns = np.linalg.solve(equations, consts)
+                    for s in solns:
+                        x.append(s)
+
+                # Applying L2 inverse to x
+                signature = [a-b for a, b in zip(x, privKey.b2)]
+                privKey.l2inv = np.matrix(privKey.l2inv)
+                signature = np.matrix(signature)
+
+                signature = signature * privKey.l2inv
+                signature = np.array(signature)[0]
+                if args.v >= 2:
+                    print(signature)
+                break
+            except LinAlgError:
+                print("Restarting with new vinegar!")
+        
+        if args.v:
+            print("Done.")
+        return signature
+        
+
+
 if __name__ == '__main__':
-
-    myKeyObject = rainbowKeygen(verbosity = True)
-    myPublicKey = myKeyObject.generate_publickey()
+    myKeyObject = rainbowKeygen()
+    myKeyObject.generate_publickey()
+    myKeyObject.generate_privatekey()
+    signature = rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
+    print(signature)
  
-
-    
-    
-    
