@@ -222,16 +222,17 @@ class rainbowKeygen:
             pcount += ol
         
         # Compaction
-        for i in range(len(self.polynomial.quadratic)):
-            for j in range(len(self.polynomial.quadratic[i])):
-                if i > j:   # lower triangle
-                    self.polynomial.quadratic[j][i] += self.polynomial.quadratic[i][j]
-                    self.polynomial.quadratic[i][j] = 0
-
         compact_quads = list()
         for i in range(len(self.polynomial.quadratic)):
-            for j in range(i, len(self.polynomial.quadratic[i])):
-                compact_quads.append(self.polynomial.quadratic[i][j])
+            compact_quads.append(list())
+            for j in range(len(self.polynomial.quadratic[i])):
+                for k in range(len(self.polynomial.quadratic[i][j])):
+                    if j > k:   # lower triangle
+                        self.polynomial.quadratic[i][k][j] += self.polynomial.quadratic[i][j][k]
+                        #self.polynomial.quadratic[i][j][k] = 0
+                    else:
+                        compact_quads[-1].append(self.polynomial.quadratic[i][j][k])
+
 
         class pubKeyClass: pass
 
