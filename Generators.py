@@ -51,6 +51,8 @@ class rainbowKeygen:
 
         self.L2 = self.L2.retrieve()
         self.L2, self.L2inv, self.b2 = self.L2['l'], self.L2['linv'], self.L2['b']
+        #print(self.L1, self.L2, self.L1inv, self.L2inv)
+        #print(self.F_layers)
 
         if args.v:
             print("Initialised with n :", self.n, ", k :", self.k, ", u :", self.u, "v :", self.v)
@@ -190,7 +192,6 @@ class rainbowKeygen:
         polynomial.quadratic = temp_quadratic
         polynomial.linear = temp_linear
         polynomial.constant = temp_constant
-
         return
 
     def generate_publickey(self):
@@ -232,7 +233,6 @@ class rainbowKeygen:
                         #self.polynomial.quadratic[i][j][k] = 0
                     else:
                         compact_quads[-1].append(self.polynomial.quadratic[i][j][k])
-
 
         class pubKeyClass: pass
 
@@ -396,7 +396,43 @@ class rainbowKeygen:
         if args.v:
             print("Done.")
         return signature
+    
+    def verify(keyFile, signature, msgFile):
+        '''
+        Verify the signature using the public key
+        '''
+        with open(keyFile, 'rb') as kFile:
+            pubKey = dill.load(kFile)
+
+        pubKey.quadratic = list()
+
+        for _i in pubKey.quads:
+            temp2d = list()
+            for i in range(pubKey.n):
+                temp = list()
+                temp.extend([0] * i)
+                for j in range(pubKey.n - i):
+                    temp.append(_i[j+i])
+                temp2d.append(temp)
+            pubKey.quadratic.append(temp2d)
+
+        with open(msgFile, 'r') as mFile:
+            message = mFile.read()
         
+        y = rainbowKeygen.generate_targets(pubKey.n, pubKey.v0, pubKey.k, message)
+        temp = 0
+        for i in range(len(pubKey.quadratic)):
+            for p in range(len(pubKey.quadratic[i])):
+                for q in range(len(pubKey.quadratic[i][p])):
+                    temp += pubKey.quadratic[i][p][q] * signature[p] * signature[q]
+            
+            for p in range(len(pubKey.linear[i])):
+                temp += pubKey.linear[i][p] * signature[p]
+
+            temp += pubKey.consts[i]
+            print(i, temp, y[i], temp == y[i])
+        
+        return
 
 
 if __name__ == '__main__':
@@ -404,5 +440,5 @@ if __name__ == '__main__':
     myKeyObject.generate_publickey()
     myKeyObject.generate_privatekey()
     signature = rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
+    rainbowKeygen.verify('rPub.rkey', signature, 'testFile.txt')
     print(signature)
- 
