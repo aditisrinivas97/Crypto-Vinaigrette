@@ -101,6 +101,158 @@ class GF256:
         else:
             return GF256.exponenets[255 - GF256.logarithms[x]]
 
+    def lower_zero_matrix(mat, inverse):
+        '''
+        Change elements below diagonal to 0.
+        '''
+        if inverse:
+            length = 2 * len(mat)
+        else:
+            length = len(mat) + 1
+
+        for k in range(len(mat)-1):
+            for i in range(k+1, len(mat)):
+                factor = mat[i][k]
+                factor2 = GF256.get_inverse(mat[k][k])
+                if factor2 == 0:
+                    raise Exception("Matrix not invertible")
+                
+                for j in range(k, length):
+                    temp = GF256.multiply(mat[k][j], factor2)
+                    temp = GF256.multiply(factor, temp)
+                    mat[i][j] = GF256.add(mat[i][j], temp)
+
+    
+    def upper_zero_matrix(mat):
+        '''
+        Change elements above diagonal to 0.
+        '''
+        temp = 0
+        for k in range(len(mat)-1, 0, -1):
+            for i in range(k-1, -1, -1):
+                factor = mat[i][k]
+                factor2 = GF256.inverse(mat[k][k])
+                if factor2 == 0:
+                    raise Exception("Matrix not invertible")
+
+                for j in range(k, 2 * len(mat)):
+                    temp = GF256.multiply(mat[k][j], factor2)
+                    temp = GF256.multiply(factor, temp)
+                    mat[i][j] = GF256.add(mat[i][j], temp)
+
+    
+    def back_substitute(mat):
+        '''
+        Perform back-substitution (for solving equations)
+        '''
+        temp = GF256.inverse(mat[len(mat)-1][len(mat)-1])
+        if temp == 0:
+            raise Exception("Equations cannot be solved!")
+        
+        x = [0] * len(mat)
+        x[len(mat) - 1] = GF256.multiply(mat[len(mat)-1][len(mat)], temp)
+        for i in range(len(mat)-2, -1, -1):
+            temp2 = mat[i][len(mat)]
+            for j in range(len(mat)-1, i, -1):
+                temp = GF256.multiply(at[i][j], x[j])
+                temp2 = GF256.add(temp2, temp)
+            
+            temp = GF256.inverse(mat[i][i])
+            if temp == 0:
+                raise Exception("Equations cannot be solved!")
+            
+            x[i] = GF256.multiply(temp2, temp)
+
+
+    def multiply_matrices(m1, m2):
+        '''
+        Multiply 2 matrices within the finite field.
+        '''
+        if len(m1) != len(m2) or len(m1[0]) != len(m2[0]):
+            raise Exception("Matrices have to have same dimensions.")
+
+        ret = [[0] * len(m2[0])] * len(m1)
+        for i in range(len(m1)):
+            for j in range(len(m2)):
+                for k in range(len(m2[0])):
+                    temp = GF256.multiply(m1[i][j], m2[j][k])
+                    ret[i][k] = GF256.add(ret[i][k], temp)
+
+        return ret
+
+    
+    def multiply_matrix_vector(m, v):
+        '''
+        Multiply a matrix and a vector within the finite field.
+        '''
+        if len(m[0]) != len(v):
+            raise Exception("Cannot multiply")
+        
+        ret = [0] * len(m)
+        for i in range(len(m)):
+            for j in range(len(v)):
+                temp = GF256.multiply(m[i][j], v[j])
+                ret[i] = GF256.add(v[i], temp)
+
+        return ret
+
+    
+    def add_vectors(v1, v2):
+        '''
+        Add two vectors within the finite field.
+        '''
+        if len(v1) != len(v2):
+            raise Exception("Vectors must be equal length!")
+
+        ret = [0] * len(v1)
+        for i in range(len(v1)):
+            ret[i] = GF256.add(v1[i], v2[i])
+
+        return ret
+
+    
+    def multiply_vectors(v1, v2):
+        '''
+        Multiply 2 vectors.
+        '''
+        if len(v1) != len(v2):
+            raise Exception("Vectors must be of same length to multiply!")
+
+        ret = [[0] * len(v1)] * len(v2)
+        for i in range(len(v1)):
+            for j in range(len(v2)):
+                ret[i][j] = GF256.multiply(v1[i], v2[j])
+
+        return ret
+
+
+    def multiply_matrix_scalar(m, s):
+        '''
+        Multiply a matrix with a scalar (each element) within the finite field.
+        '''
+        ret = list()
+        for i in m:
+            ret.append(list())
+            for j in i:
+                temp = GF256.multiply(j, s)
+                ret[-1].append(temp)
+
+        return ret
+
+    def add_matrices(m1, m2):
+        if len(m1) != len(m2) or len(m1[0]) != len(m2[0]):
+            raise Exception("Matrices have to have same dimensions!")
+
+        ret = list()
+        for i in range(len(m1)):
+            ret.append(list())
+            for j in range(len(m1[0])):
+                temp = GF256.add(m1[i][j], m2[i][j])
+                ret[-1].append(temp)
+
+        return ret
+
+
 
 if __name__ == '__main__':
     print("Mask value :", GF256.mask)
