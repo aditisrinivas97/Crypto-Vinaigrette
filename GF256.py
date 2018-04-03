@@ -252,6 +252,93 @@ class GF256:
 
         return ret
 
+    def substitute(m1, m2):
+        '''
+        Backward substitution method to find x given m1 * x = m2
+        '''
+        temp = GF256.get_inverse(m1[len(m1) - 1][len(m1) - 1])
+        if temp == 0:
+            raise Exception("Equations cannot be solved!")
+        
+        m2[len(m1) - 1] = GF256.multiply(m1[len(m1) - 1][len(m1)], temp)
+        
+        for i in range(len(m1) - 2, -1, -1):
+            _temp = m1[i][len(m1)]
+            
+            for j in range(len(m1) - 1, i, -1):
+                temp = GF256.multiply(m1[i][j], m2[j])
+                _temp = GF256.add(_temp, temp)
+            
+            temp = GF256.get_inverse(m1[i][i])
+            
+            if temp == 0:
+                raise Exception("Equations cannot be solved!")
+            
+            m2[i] = GF256.multiply(_temp, temp)
+        
+        return m2
+
+    def solve_equation(m1, m2):
+        '''
+        Solve a system of linear equation of the form : m1 * x = m2
+        '''
+        if len(m1) != len(m2):
+            raise Exception("Matrices have to have same dimensions!")
+        
+        temp = [[0] * (len(m1) + 1) for i in range(len(m1))]
+        ret = [0] * len(m1)
+
+        for i in range(len(m1)):
+            for j in range(len(m1[0])):
+                temp[i][j] = m1[i][j]
+
+        for i in range(len(m2)):
+            temp[i][len(m2)] = GF256.add(m2[i], temp[i][len(m2)])
+        
+        lower_zero_matrix(temp, False)
+        ret = substitute(temp, ret)
+
+        return ret
+
+    def find_inverse(mat):
+        '''
+        Calculate the inverse of a given matrix
+        '''
+        try :
+            temp = [[0] * (2 * len(mat)) for i in range(len(mat))]
+            if len(mat) != len(mat[0]):
+                raise Exception("Matrix is not invertible!")
+            
+            for i in range(len(mat)):
+                for j in range(len(mat)):
+                    temp[i][j] = mat[i][j]
+
+                for j in range(len(mat), 2 * len(mat)):
+                    temp[i][j] = 0
+
+                temp[i][i + len(temp)] = 1
+            
+            lower_zero_matrix(temp, True)
+
+            for i in range(len(temp)):
+                factor = GF256.get_inverse(temp[i][i])
+                for j in range(i, len(temp) * 2):
+                    temp[i][j] = GF256.multiply(temp[i][j], factor)
+            
+            upper_zero_matrix(temp)
+
+            ret = [[0] * len(temp) for i in range(len(temp))]
+            for i in range(len(temp)):
+                for j in range(len(temp), 2 * len(temp)):
+                    ret[i][j - len(temp)] = temp[i][j]   
+
+            return ret
+
+        except:
+            
+            raise Exception("Matrix is not invertible. Generate new matrix!") 
+            return
+
 
 
 if __name__ == '__main__':
