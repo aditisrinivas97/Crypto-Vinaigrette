@@ -6,6 +6,7 @@ Generate an invertible Affine function.
 import secrets, dill
 from multiprocessing import Process, Pipe
 from datetime import datetime as dt
+from GF256 import *
 
 # -------------------- Module -------------------- #
 class Affine:
@@ -27,22 +28,27 @@ class Affine:
         except ValueError as e:
             print("M, N, and K must be integers!")
 
+        iters = 0
         while True:
             l = list()
             for i in range(m):
                 l.append(list())
                 for j in range(n):
-                    l[-1].append(secrets.randbelow(k))
+                    l[-1].append(GF256.get())
             
             try:
-                linv = np.linalg.inv(l)
+                linv = GF256.find_inverse(l)
+                #print("tried : ",linv)
                 break
-            except LinAlgError:
+            except Exception as e:
+                iters += 1
+                if iters % 100000 == 0:
+                    print(iters, "done")
                 pass
-
+                
         b = list()
         for i in range(m):
-            b.append(secrets.randbelow(k))
+            b.append(GF256.get())
 
         ret = dict()
         ret['l'] = l
@@ -95,7 +101,7 @@ if __name__ == '__main__':
         start = dt.now()
         a = Affine(i, 128)
         a.start_generators(5)
-        a.retrieve()
+        a = a.retrieve()
         end = dt.now()
         print(i, end-start)
         

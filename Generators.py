@@ -7,6 +7,7 @@ Generate UOV parameters and keys
 import secrets, argparse, numpy as np
 import dill, errno, os, subprocess as sp, atexit
 from Affine import *
+from GF256 import *
 
 # -------------------- Command Line Args -------------------- #
 
@@ -51,19 +52,17 @@ class rainbowKeygen:
 
         self.L2 = self.L2.retrieve()
         self.L2, self.L2inv, self.b2 = self.L2['l'], self.L2['linv'], self.L2['b']
-        #print(self.L1, self.L2, self.L1inv, self.L2inv)
-        #print(self.F_layers)
 
         if args.v:
             print("Initialised with n :", self.n, ", k :", self.k, ", u :", self.u, "v :", self.v)
 
-    def generate_random_element(k) :
+    def generate_random_element() :
         '''
-        Generate a cryptographically secure random number below k
+        Generate a cryptographically secure random number within the finite field.
         ''' 
-        num = secrets.randbelow(k)
+        num = GF256.get()
         while not num :
-            num = secrets.randbelow(k)
+            num = GF256.get()
         return num
 
     def generate_random_matrix(x, y, k) :
@@ -73,7 +72,7 @@ class rainbowKeygen:
         mat = [[0] * y for i in range(x)]
         for i in range(x) :
             for j in range(y):
-                mat[i][j] = rainbowKeygen.generate_random_element(k)
+                mat[i][j] = rainbowKeygen.generate_random_element()
         return mat
     
     def generate_vinegars(self):
@@ -82,15 +81,20 @@ class rainbowKeygen:
         '''
         ret = list()
 
+        rnum = rainbowKeygen.generate_random_element()
+        while rnum > self.n or (rnum - self.n) >= (self.u):
+            rnum = rainbowKeygen.generate_random_element()
+
+
         while True : 
             if len(ret) == self.u :
                 ret.sort()
                 ret[-1] = self.n
                 break
 
-            rnum = rainbowKeygen.generate_random_element(self.n)
+            rnum = rainbowKeygen.generate_random_element()
 
-            if rnum not in ret and rnum != self.n:
+            if rnum not in ret and rnum != self.n and (rnum - self.n) < (self.u - len(ret)):
                 ret.append(rnum)
 
         if args.v:
@@ -122,7 +126,7 @@ class rainbowKeygen:
                 alphas = rainbowKeygen.generate_random_matrix(self.v[_i], self.v[_i], self.k)
                 betas = rainbowKeygen.generate_random_matrix(self.v[_i + 1] - self.v[_i], self.v[_i], self.k)
                 gammas = rainbowKeygen.generate_random_matrix(1, self.v[_i + 1], self.k)
-                etas = rainbowKeygen.generate_random_element(self.k)
+                etas = rainbowKeygen.generate_random_element()
 
                 layer['alphas'] = alphas
                 layer['betas'] = betas
@@ -144,54 +148,38 @@ class rainbowKeygen:
             # Multiply Alphas
             for i in range(vl):
                 for j in range(vl):
-                    temp = np.multiply(coefficients[_i]['alphas'][i][j], self.L2[i])
-                    polynomial.quadratic[pcount + _i] = (np.add(np.array(polynomial.quadratic[pcount + _i]), np.multiply((np.array(temp)).reshape(self.n, 1), (np.array(self.L2[j])).reshape(1, self.n)))).tolist()
-                    temp = np.multiply(self.b2[j], temp)
-                    polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
-                    temp = np.multiply(coefficients[_i]['alphas'][i][j], self.L2[j])
-                    temp = np.multiply(self.b2[i], temp)
-                    polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()     
-                    temp = coefficients[_i]['alphas'][i][j] * self.b2[i]
-                    polynomial.constant[pcount + _i] += temp * self.b2[j]
+                    temp = GF256.multiply_scalar_vector(coefficients[_i]['alphas'][i][j], self.L2[i])
+                    polynomial.quadratic[pcount + _i] = GF256.add_matrices(polynomial.quadratic[pcount + _i], GF256.multiply_vectors(temp, self.L2[j]))
+                    temp = GF256.multiply_scalar_vector(self.b2[j], temp)
+                    polynomial.linear[pcount + _i] = GF256.add_vectors(temp, polynomial.linear[pcount + _i])
+                    temp = GF256.multiply_scalar_vector(coefficients[_i]['alphas'][i][j], self.L2[j])
+                    temp = GF256.multiply_scalar_vector(self.b2[i], temp)
+                    polynomial.linear[pcount + _i] = GF256.add_vectors(temp, polynomial.linear[pcount + _i])
+                    temp = GF256.multiply(coefficients[_i]['alphas'][i][j], self.b2[i])
+                    polynomial.constant[pcount + _i] = GF256.add(polynomial.constant[pcount + _i], GF256.multiply(temp, self.b2[j]))
 
             # Multiply Betas    
             for i in range(ol):
                 for j in range(vl):
-                    temp = np.multiply(coefficients[_i]['betas'][i][j], self.L2[i + vl])
-                    polynomial.quadratic[pcount + _i] = (np.add(np.array(polynomial.quadratic[pcount + _i]), np.multiply((np.array(temp)).reshape(self.n, 1), (np.array(self.L2[j])).reshape(1, self.n)))).tolist()
-                    temp = np.multiply(self.b2[j], temp)
-                    polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
-                    temp = np.multiply(coefficients[_i]['betas'][i][j], self.L2[j])
-                    temp = np.multiply(self.b2[i + vl], temp)
-                    polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
-                    temp = coefficients[_i]['betas'][i][j] * self.b2[i + vl]
-                    polynomial.constant[pcount + _i] += temp * self.b2[j]
+                    temp = GF256.multiply_scalar_vector(coefficients[_i]['betas'][i][j], self.L2[i + vl])
+                    polynomial.quadratic[pcount + _i] = GF256.add_matrices(polynomial.quadratic[pcount + _i], GF256.multiply_vectors(temp, self.L2[j]))
+                    temp = GF256.multiply_scalar_vector(self.b2[j], temp)
+                    polynomial.linear[pcount + _i] = GF256.add_vectors(temp, polynomial.linear[pcount + _i])
+                    temp = GF256.multiply_scalar_vector(coefficients[_i]['betas'][i][j], self.L2[j])
+                    temp = GF256.multiply_scalar_vector(self.b2[i + vl], temp)
+                    polynomial.linear[pcount + _i] = GF256.add_vectors(temp, polynomial.linear[pcount + _i])
+                    temp = GF256.multiply(coefficients[_i]['betas'][i][j], self.b2[i + vl])
+                    polynomial.constant[pcount + _i] = GF256.add(polynomial.constant[pcount + _i], GF256.multiply(temp, self.b2[j]))
             
             # Multiply Gammas    
             for i in range(vl + ol):
-                temp = np.multiply(coefficients[_i]['gammas'][0][i], self.L2[i])
-                polynomial.linear[pcount + _i] = (np.add(temp, polynomial.linear[pcount + _i])).tolist()
-                polynomial.constant[pcount + _i] += coefficients[_i]['gammas'][0][i] * self.b2[i]
+                temp = GF256.multiply_scalar_vector(coefficients[_i]['gammas'][0][i], self.L2[i])
+                polynomial.linear[pcount + _i] = GF256.add_vectors(temp, polynomial.linear[pcount + _i])
+                polynomial.constant[pcount + _i] = GF256.add(polynomial.constant[pcount + _i], GF256.multiply(coefficients[_i]['gammas'][0][i], self.b2[i]))
             
             # Add Eta
-            polynomial.constant[pcount + _i] += coefficients[_i]['etas'][0]
+            polynomial.constant[pcount + _i] = GF256.add(polynomial.constant[pcount + _i], coefficients[_i]['etas'][0])
         
-        # Composition of L1 and F * L2
-        temp_quadratic = [[[0] * self.n for i in range(self.n)] for j in  range(self.n - self.v[0])]
-        temp_linear = [[0] * self.n for i in range(self.n - self.v[0])]
-        temp_constant = [0] * (self.n - self.v[0])
-
-        for i in range(self.n - self.v[0]):
-            for j in range(len(self.L1)):
-                temp_quadratic[i] = (np.add(np.array(temp_quadratic[i]), np.multiply(self.L1[i][j], polynomial.quadratic[j]))).tolist()
-                temp_linear[i] = (np.add(np.array(temp_linear[i]), np.multiply(self.L1[i][j], polynomial.linear[j]))).tolist()
-                temp_constant[i] += self.L1[i][j] * polynomial.constant[j] 
-            temp_constant[i] += self.b1[i]
-
-        # Assign the computed values for L1 * F * L2
-        polynomial.quadratic = temp_quadratic
-        polynomial.linear = temp_linear
-        polynomial.constant = temp_constant
         return
 
     def generate_publickey(self):
@@ -222,17 +210,34 @@ class rainbowKeygen:
 
             pcount += ol
         
+        # Composition of L1 and F * L2
+        temp_quadratic = [[[0] * self.n for i in range(self.n)] for j in  range(self.n - self.v[0])]
+        temp_linear = [[0] * self.n for i in range(self.n - self.v[0])]
+        temp_constant = [0] * (self.n - self.v[0])
+
+        for i in range(self.n - self.v[0]):
+            for j in range(len(self.L1)):
+                temp_quadratic[i] = GF256.add_matrices(temp_quadratic[i], GF256.multiply_matrix_scalar(self.polynomial.quadratic[j], self.L1[i][j]))
+                temp_linear[i] = GF256.add_vectors(temp_linear[i], GF256.multiply_scalar_vector(self.L1[i][j], self.polynomial.linear[j]))
+                temp_constant[i] = GF256.add(temp_constant[i], GF256.multiply(self.L1[i][j], self.polynomial.constant[j]))
+            temp_constant[i] = GF256.add(temp_constant[i], self.b1[i])
+
+        # Assign the computed values for L1 * F * L2
+        self.polynomial.quadratic = temp_quadratic
+        self.polynomial.linear = temp_linear
+        self.polynomial.constant = temp_constant
+
         # Compaction
         compact_quads = list()
         for i in range(len(self.polynomial.quadratic)):
             compact_quads.append(list())
             for j in range(len(self.polynomial.quadratic[i])):
-                for k in range(len(self.polynomial.quadratic[i][j])):
-                    if j > k:   # lower triangle
-                        self.polynomial.quadratic[i][k][j] += self.polynomial.quadratic[i][j][k]
-                        #self.polynomial.quadratic[i][j][k] = 0
-                    else:
+                for k in range(j, len(self.polynomial.quadratic[i][j])):
+                    if j == k:
                         compact_quads[-1].append(self.polynomial.quadratic[i][j][k])
+                    else:
+                        compact_quads[-1].append(GF256.add(self.polynomial.quadratic[i][k][j], self.polynomial.quadratic[i][j][k]))
+                        
 
         class pubKeyClass: pass
 
@@ -283,20 +288,27 @@ class rainbowKeygen:
         ret = list()
 
         parts = n - v0          # Number of parts to split message into
+        if args.v >= 2:
+            print("Splitting into", parts, "parts.")
         part = len(message) // (parts + 1)      # Length of each part
         part += 1
 
         k = 0
         for i in range(parts):
             yPart = 0
-            for j in range(part):
-                try:
+            try:
+                for j in range(part):
                     yPart = yPart | ord(message[k])
                     k += 1
-                except IndexError:
-                    ret.append(yPart)
-                    break
+            except IndexError:
+                ret.append(yPart)
+                break
             ret.append(yPart)
+
+        ret.extend([0] * (parts-i-1))
+
+        if args.v >= 2:
+            print("Message =", ret)
 
         return ret
 
@@ -317,21 +329,22 @@ class rainbowKeygen:
         with open(msgFile, 'r') as mFile:
             message = mFile.read()
             y = rainbowKeygen.generate_targets(privKey.n, len(privKey.F_layers[0][0]['alphas'][0]), privKey.k, message)
+            if args.v >= 2:
+                print(y)
         
         # Apply L1^(-1)
-        ydash = [a-b for a, b in zip(y, privKey.b1)]
-        privKey.l1inv = np.matrix(privKey.l1inv)
-        ydash = np.matrix(ydash)
 
-        ydash = ydash * privKey.l1inv
-        ydash = np.array(ydash)[0]
+        ydash = GF256.add_vectors(y, privKey.b1)
+        ydash = GF256.multiply_matrix_vector(privKey.l1inv, ydash)
+
+        v0 = len(privKey.F_layers[0][0]['alphas'][0])
 
         while True:
             try:
                 # Generate v0 number of random vinegars as x0, x1...xv0
                 x = list()
                 for i in range(len(privKey.F_layers[0][0]['alphas'][0])):
-                    x.append(rainbowKeygen.generate_random_element(privKey.k))
+                    x.append(rainbowKeygen.generate_random_element())
 
                 # Solve polynomials layer by layer, finding ol oils and adding them to vinegars (i.e, x)
                 for layer in range(privKey.layers):
@@ -339,6 +352,8 @@ class rainbowKeygen:
                     ol = len(privKey.F_layers[layer][0]['betas'])
                     equations = [[0] * ol for i in range(ol)]
                     consts = [0] * ol
+
+                    print("Layer", layer, "oils", ol, "vinegars", vl)
                     
                     for i in range(ol):
                         for j in range(vl):
@@ -347,51 +362,65 @@ class rainbowKeygen:
                                 privKey.F_layers[layer][i]['alphas'][j][k]
                                 x[j]
                                 x[k]
-                                consts[i] += privKey.F_layers[layer][i]['alphas'][j][k] * x[j] * x[k]
+                                consts[i] = GF256.add(consts[i], 
+                                    GF256.multiply(
+                                        GF256.multiply(privKey.F_layers[layer][i]['alphas'][j][k], x[j]), 
+                                        x[k])
+                                    )
 
                         for j in range(ol):
                             for k in range(vl):
                                 equations[i][j]
                                 privKey.F_layers[layer][i]['betas'][j][k]
                                 x[k]
-                                equations[i][j] += privKey.F_layers[layer][i]['betas'][j][k] * x[k]
+                                equations[i][j] = GF256.add(equations[i][j], GF256.multiply(privKey.F_layers[layer][i]['betas'][j][k], x[k]))
 
                         for j in range(ol+vl):
                             if j < vl:
                                 consts[i]
                                 privKey.F_layers[layer][i]['gammas'][0][j]
                                 x[j]
-                                consts[i] += privKey.F_layers[layer][i]['gammas'][0][j] * x[j]
+                                consts[i] = GF256.add(consts[i], GF256.multiply(privKey.F_layers[layer][i]['gammas'][0][j], x[j]))
                             else:
                                 equations[i][j-vl]
                                 privKey.F_layers[layer][i]['gammas'][0][j]
-                                equations[i][j-vl] += privKey.F_layers[layer][i]['gammas'][0][j]
+                                equations[i][j-vl] = GF256.add(equations[i][j-vl], privKey.F_layers[layer][i]['gammas'][0][j])
 
                         consts[i]
                         privKey.F_layers[layer][i]['etas'][0]
-                        consts[i] += privKey.F_layers[layer][i]['etas'][0]
+                        consts[i] = GF256.add(consts[i], privKey.F_layers[layer][i]['etas'][0])
 
-                    for i in range(len(consts)):
-                        consts[i] = -consts[i] + ydash[i]
+                    for e in range(len(equations)):
+                        equations[e].append(consts[e])
 
                     if args.v >= 2:
                         print(equations, consts)
-                    solns = np.linalg.solve(equations, consts)
+                    
+                    start = len(x) - v0
+                    print(len(ydash))
+                    print(start, len(equations))
+                    print(start+len(equations))
+                    print(len(ydash[start:start+ol]))
+                    solns = GF256.solve_equation(equations, ydash[start:start+ol])
+
                     for s in solns:
                         x.append(s)
 
                 # Applying L2 inverse to x
-                signature = [a-b for a, b in zip(x, privKey.b2)]
-                privKey.l2inv = np.matrix(privKey.l2inv)
-                signature = np.matrix(signature)
+                signature = GF256.add_vectors(x, privKey.b2)
+                signature = GF256.multiply_matrix_vector(privKey.l2inv, signature)
 
-                signature = signature * privKey.l2inv
-                signature = np.array(signature)[0]
                 if args.v >= 2:
                     print(signature)
                 break
-            except LinAlgError:
-                print("Restarting with new vinegar!")
+            except GF256Errors as e:
+                print("Layer", layer, "of", privKey.layers)
+                print("Restarting with new vinegar! because", e)
+                raise e
+            except Exception as e:
+                if args.v:
+                    print("Restarting with new vinegar because", e, "!")
+                    raise e
         
         if args.v:
             print("Done.")
@@ -418,19 +447,24 @@ class rainbowKeygen:
 
         with open(msgFile, 'r') as mFile:
             message = mFile.read()
-        
-        y = rainbowKeygen.generate_targets(pubKey.n, pubKey.v0, pubKey.k, message)
-        temp = 0
-        for i in range(len(pubKey.quadratic)):
-            for p in range(len(pubKey.quadratic[i])):
-                for q in range(len(pubKey.quadratic[i][p])):
-                    temp += pubKey.quadratic[i][p][q] * signature[p] * signature[q]
-            
-            for p in range(len(pubKey.linear[i])):
-                temp += pubKey.linear[i][p] * signature[p]
+            print(message)
+            y = rainbowKeygen.generate_targets(pubKey.n, pubKey.v0, pubKey.k, message)
 
-            temp += pubKey.consts[i]
-            print(i, temp, y[i], temp == y[i])
+        ret = [0] * len(pubKey.quads)
+        for p in range(len(pubKey.quads)):
+            offset = 0
+            for q in range(pubKey.n):
+                for r in range(q, pubKey.n):
+                    ret[p] = GF256.add(GF256.multiply(pubKey.quads[p][offset], 
+                                GF256.multiply(signature[q], signature[r])), 
+                            ret[p])
+                    offset += 1
+                ret[p] = GF256.add(ret[p], GF256.multiply(pubKey.linear[p][q], signature[q]))
+            ret[p] = GF256.add(ret[p], pubKey.consts[p])
+
+
+        for i, a, b in zip(range(len(ret)), ret, y):
+            print(i, a, b, a==b)
         
         return
 
@@ -438,6 +472,7 @@ class rainbowKeygen:
 if __name__ == '__main__':
     myKeyObject = rainbowKeygen()
     myKeyObject.generate_publickey()
+    print("Done")
     myKeyObject.generate_privatekey()
     signature = rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
     rainbowKeygen.verify('rPub.rkey', signature, 'testFile.txt')
