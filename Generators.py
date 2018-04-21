@@ -5,7 +5,7 @@ Generate UOV parameters and keys
 # -------------------- IMPORTS and Definitions -------------------- #
 
 import secrets, argparse, numpy as np
-import dill, errno, os, subprocess as sp, atexit
+import dill, errno, os, subprocess as sp, atexit, hashlib
 from Affine import *
 from GF256 import *
 
@@ -283,8 +283,16 @@ class rainbowKeygen:
 
     def generate_targets(n, v0, k, message):
         '''
-        Generates Y or the set of targets
+        Generates Y or the set of targets from the hash of the message.
         '''
+
+        h = hashlib.new('ripemd160')
+        h.update(bytes(message, encoding='utf-8'))
+        newMessage = h.hexdigest()
+        if args.v:
+            print("Hashed message of length", len(message), "to hash length :", len(newMessage))
+        
+        message = newMessage
         ret = list()
 
         parts = n - v0          # Number of parts to split message into
@@ -447,7 +455,8 @@ class rainbowKeygen:
 
         with open(msgFile, 'r') as mFile:
             message = mFile.read()
-            print(message)
+            if args.v >= 2:
+                print(message)
             y = rainbowKeygen.generate_targets(pubKey.n, pubKey.v0, pubKey.k, message)
 
         ret = [0] * len(pubKey.quads)
