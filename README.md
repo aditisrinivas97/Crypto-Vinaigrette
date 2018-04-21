@@ -14,7 +14,7 @@ Digital signatures are a common way of authenticating a sender by verifying a pi
 
 As mentioned before, we employ the Generalised Unbalanced Oil and Vinegar scheme or the Rainbow scheme to achieve the same. <br>
 
-You can find the paper here : `https://bit.ly/2vwckRw`
+You can find the paper here : https://bit.ly/2vwckRw
 
 
 ## Installing
