@@ -8,7 +8,7 @@ A quantum resistent asymmetric key generation tool based on the rainbow scheme f
 
 ## Why would you need this?
 
-![Auth Comic](pictures/identity.png)
+![Auth Comic](https://github.com/aditisrinivas97/Crypto-Vinaigrette/blob/master/extras/identity.png)
 
 Digital signatures are a common way of authenticating a sender by verifying a piece of information attached to the document. In our case, the attached piece of information is a sequence of numbers generated using the document which is to be signed. <br>
 
