@@ -1,4 +1,4 @@
-# Crypto-Vinaigratte
+# Crypto-Vinaigrette
 [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)]()
 ![Status](https://img.shields.io/badge/status-active-brightgreen.svg?style=flat)
 [![License](https://img.shields.io/badge/license-mit-brightgreen.svg?style=flat)](https://github.com/aditisrinivas97/Crypto-Vinaigrette/blob/master/LICENSE)
@@ -27,7 +27,7 @@ $ pip install crypto-vinaigrette
 
 ## Usage
 
-1. Creating a key-pair. <br><br>
+1. Creating a key-pair. <br>
 
     The keys generated are stored in the current working directory.
 
@@ -38,7 +38,7 @@ $ pip install crypto-vinaigrette
     myKeyObject.generate_keys()
     ``` 
 
-2. Signing a document. <br><br>
+2. Signing a document. <br>
 
     Signing is done using the `Private Key`. Assuming the private key is named `rPriv.rkey` and the document to be signed is `testfile.txt`,
     
@@ -46,7 +46,7 @@ $ pip install crypto-vinaigrette
     rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
     ``` 
 
-3. Verifying the digital signature. <br><br>
+3. Verifying the digital signature. <br>
 
     Verification is done using the `Public Key`. Assuming the public key is named `rPub.rkey` and the document whose signature is to be verified is `testfile.txt`,
 

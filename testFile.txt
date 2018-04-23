@@ -1,14 +1,17 @@
-def multiply_matrix_vector(m, v):
-        '''
-        Multiply a matrix and a vector within the finite field.
-        '''
-        if len(m[0]) != len(v):
-            raise GF256Errors("Cannot multiply")
-        
-        ret = [0] * len(m)
-        for i in range(len(m)):
-            for j in range(len(v)):
-                temp = GF256.multiply(m[i][j], v[j])
-                ret[i] = GF256.add(ret[i], temp)            # CHANGE
-
-        return ret
+                                _.-.
+                               /  99\
+                              (      `\
+                              |\\ ,  ,|
+                      __      | \\____/
+                ,.--"`-.".   /   `---'
+            _.-'          '-/      |
+        _.-"   |   '-.             |_/_
+  ,__.-'  _,.--\      \      ((    /-\
+  ',_..--'      `\     \      \\_ /
+                  `-,   )      |\' 
+                    |   |-.,,-" (  
+                    |   |   `\   `',_
+                    )    \    \,(\(\-'
+                    \     `-,_
+                     \_(\-(\`-`
+                        "  "
