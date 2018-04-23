@@ -19,7 +19,7 @@ You can find the paper here : https://bit.ly/2vwckRw
 
 ## Installing
 
-Install the package using pip
+Install the package using pip  (Pending..)
 
 ```
 $ pip install crypto-vinaigrette
