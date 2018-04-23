@@ -6,6 +6,7 @@ Generate UOV parameters and keys
 
 import secrets, argparse, numpy as np
 import dill, errno, os, subprocess as sp, atexit, hashlib
+from datetime import datetime as dt
 from Affine import *
 from GF256 import *
 
@@ -326,7 +327,7 @@ class rainbowKeygen:
         '''
         
         if args.v:
-            print("Signing...")
+            pass#print("Signing...")
         # Load private key
         with open(keyFile, 'rb') as kFile:
             privKey = dill.load(kFile)
@@ -361,7 +362,8 @@ class rainbowKeygen:
                     equations = [[0] * ol for i in range(ol)]
                     consts = [0] * ol
 
-                    print("Layer", layer, "oils", ol, "vinegars", vl)
+                    if args.v >= 2:
+                        print("Layer", layer, "oils", ol, "vinegars", vl)
                     
                     for i in range(ol):
                         for j in range(vl):
@@ -405,10 +407,11 @@ class rainbowKeygen:
                         print(equations, consts)
                     
                     start = len(x) - v0
-                    print(len(ydash))
-                    print(start, len(equations))
-                    print(start+len(equations))
-                    print(len(ydash[start:start+ol]))
+                    if args.v >= 3:
+                        print(len(ydash))
+                        print(start, len(equations))
+                        print(start+len(equations))
+                        print(len(ydash[start:start+ol]))
                     solns = GF256.solve_equation(equations, ydash[start:start+ol])
 
                     for s in solns:
@@ -471,18 +474,58 @@ class rainbowKeygen:
                 ret[p] = GF256.add(ret[p], GF256.multiply(pubKey.linear[p][q], signature[q]))
             ret[p] = GF256.add(ret[p], pubKey.consts[p])
 
-
+    
         for i, a, b in zip(range(len(ret)), ret, y):
-            print(i, a, b, a==b)
+            if args.v >= 2:
+                print(i, a, b, a==b)
+            if a != b:
+                return False
         
-        return
+        return True
+
+    def generate_keys(self):
+        if args.v:
+            print("Generating keys")
+        
+        self.generate_publickey()
+        if args.v:
+            print("Generated public key!")
+
+        self.generate_privatekey()
+        if args.v:
+            print("Generated private key")
+
+    def save_signature(signature, sfile='rSignature'):
+        with open(sfile, 'wb') as opFile:
+            dill.dump(signature, opFile)
+
+    def load_signature(sfile='rSignature'):
+        with open(sfile, 'wb') as ipFile:
+            signature = dill.load(opFile)
+
+        return signature
 
 
 if __name__ == '__main__':
     myKeyObject = rainbowKeygen()
-    myKeyObject.generate_publickey()
-    print("Done")
-    myKeyObject.generate_privatekey()
+    
+    start = dt.now()
+    myKeyObject.generate_keys()  
+    end = dt.now()
+    if args.v:
+        print("Generated keys in", end - start, "seconds")
+    
+    start = dt.now()
     signature = rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
-    rainbowKeygen.verify('rPub.rkey', signature, 'testFile.txt')
-    print(signature)
+    end = dt.now()
+    if args.v:
+        print("Signed in", end - start, "seconds")
+    
+    start = dt.now()
+    print("Signature verification :", rainbowKeygen.verify('rPub.rkey', signature, 'testFile.txt'))
+    end = dt.now()
+    if args.v:
+        print("Verified signature in", end - start, "seconds")
+    
+    if args.v >= 2:
+        print("Signature :", signature)
