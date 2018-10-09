@@ -10,6 +10,9 @@ from datetime import datetime as dt
 from Affine import *
 from GF256 import *
 
+class pubKeyClass: pass
+class privKeyClass: pass
+
 # -------------------- Command Line Args -------------------- #
 
 parser = argparse.ArgumentParser()
@@ -240,8 +243,6 @@ class rainbowKeygen:
                         compact_quads[-1].append(GF256.add(self.polynomial.quadratic[i][k][j], self.polynomial.quadratic[i][j][k]))
                         
 
-        class pubKeyClass: pass
-
         pubKey = pubKeyClass()
         pubKey.n = self.n
         pubKey.v0 = self.v[0]
@@ -263,7 +264,6 @@ class rainbowKeygen:
         
         if args.v:
             print("Generating private key...")
-        class privKeyClass: pass
 
         privKey = privKeyClass()
         privKey.l1 = self.L1
