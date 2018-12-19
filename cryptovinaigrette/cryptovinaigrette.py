@@ -7,8 +7,8 @@ Generate UOV parameters and keys
 import secrets, argparse, numpy as np
 import dill, errno, os, subprocess as sp, atexit, hashlib
 from datetime import datetime as dt
-from Affine import *
-from GF256 import *
+from .Affine import *
+from .GF256 import *
 
 class pubKeyClass: pass
 class privKeyClass: pass

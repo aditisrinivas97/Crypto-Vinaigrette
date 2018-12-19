@@ -6,7 +6,7 @@ Generate an invertible Affine function.
 import secrets, dill
 from multiprocessing import Process, Pipe
 from datetime import datetime as dt
-from GF256 import *
+from .GF256 import *
 
 # -------------------- Module -------------------- #
 class Affine:

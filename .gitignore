@@ -1,6 +1,5 @@
 # Extras
 .dat/
-test.py
 *.rkey
 .DS_Store
 
