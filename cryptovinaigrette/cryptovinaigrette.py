@@ -15,28 +15,39 @@ class privKeyClass: pass
 
 # -------------------- Command Line Args -------------------- #
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-v', type=int, nargs='?', default=0)
-args = parser.parse_args()
-if args.v is None:
-    args.v = 0 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-v', type=int, nargs='?', default=0)
+    args = parser.parse_args()
+    if args.v is None:
+        args.v = 0 
+else:
+    args = argparse.Namespace()
+    args.v = 0
 
 
 # -------------------- Module -------------------- #
 
 class rainbowKeygen:
 
-    def __init__(self, n = 32, u = 5, k = 8):
+    def __init__(self, n = 32, u = 5, k = 8, save=''):
         '''
         Initialise the key object
 
-        n - Number of variables
-        u - Number of layers
-        k - Finite space of elements
-        v - List of number of vinegar variables in each layer
-        F_layers - Map F containing the coefficients namely alphas, betas, gammas and etas
-        L1, L2 - Affine maps
-        b1, b2 - Translation elements for the corresponsing affine maps
+        Parameters:
+            n - Number of variables
+            u - Number of layers
+            k - Finite space of elements
+            save - File to save as
+
+        Private keys are saved as '.pem' files.
+        Public keys are saved as '.pub' files.
+
+        Generated:
+            v - List of number of vinegar variables in each layer
+            F_layers - Map F containing the coefficients namely alphas, betas, gammas and etas
+            L1, L2 - Affine maps
+            b1, b2 - Translation elements for the corresponsing affine maps
 
         '''
         self.n = n        
@@ -59,6 +70,12 @@ class rainbowKeygen:
 
         if args.v:
             print("Initialised with n :", self.n, ", k :", self.k, ", u :", self.u, "v :", self.v)
+
+        start = dt.now()
+        self.generate_keys(save)
+        end = dt.now()
+        if args.v:
+            print("Generated keys in", end - start, "seconds")
 
     def generate_random_element() :
         '''
@@ -186,9 +203,12 @@ class rainbowKeygen:
         
         return
 
-    def generate_publickey(self):
+    def generate_publickey(self, save=''):
         '''
-        Generates the public key
+        Generates the public key.
+
+        Parameters:
+            save - the file to save as.
         '''
 
         if args.v:
@@ -250,16 +270,21 @@ class rainbowKeygen:
         pubKey.quads = compact_quads
         pubKey.linear = self.polynomial.linear
         pubKey.consts = self.polynomial.constant
+        self.public_key = pubKey
         
-        with open('rPub.rkey', 'wb') as pubFile:
-            dill.dump(pubKey, pubFile)
+        if save != '':
+            with open(save + '.pub', 'wb') as pubFile:
+                dill.dump(pubKey, pubFile)
         
         if args.v:
             print("Done")
 
-    def generate_privatekey(self):
+    def generate_privatekey(self, save=''):
         '''
         Generates the private key.
+
+        Parameters:
+            save - the file to save as.
         '''
         
         if args.v:
@@ -274,9 +299,11 @@ class rainbowKeygen:
         privKey.b2 = self.b2
         privKey.F_layers = self.F_layers
         privKey.k = self.k
+        self.private_key = privKey
 
-        with open('rPriv.rkey', 'wb') as privFile:
-            dill.dump(privKey, privFile)
+        if save != '':
+            with open(save + '.pem', 'wb') as privFile:
+                dill.dump(privKey, privFile)
 
         if args.v:
             print("Done.")
@@ -483,15 +510,23 @@ class rainbowKeygen:
         
         return True
 
-    def generate_keys(self):
+    def generate_keys(self, save=''):
+        '''
+        Generates both the private and public keys.
+
+        Parameters:
+            save - the file to save as.
+
+        Private keys get '.pem' extension, public keys get '.pub' extension.
+        '''
         if args.v:
             print("Generating keys")
         
-        self.generate_publickey()
+        self.generate_publickey(save)
         if args.v:
             print("Generated public key!")
 
-        self.generate_privatekey()
+        self.generate_privatekey(save)
         if args.v:
             print("Generated private key")
 
@@ -507,25 +542,20 @@ class rainbowKeygen:
 
 
 if __name__ == '__main__':
-    myKeyObject = rainbowKeygen()
+    print('CryptoVinaigrette is now a package! Please use `pip install cryptovinaigrette` and `from cryptovinaigrette import cryptovinaigrette` then `myKeyObject = cryptovinaigrette.rainbowKeygen()`')
+    # myKeyObject = rainbowKeygen(save='rainbowTest')
     
-    start = dt.now()
-    myKeyObject.generate_keys()  
-    end = dt.now()
-    if args.v:
-        print("Generated keys in", end - start, "seconds")
+    # start = dt.now()
+    # signature = rainbowKeygen.sign('rainbowTest.pem', '../test/testFile.txt')
+    # end = dt.now()
+    # if args.v:
+    #     print("Signed in", end - start, "seconds")
     
-    start = dt.now()
-    signature = rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
-    end = dt.now()
-    if args.v:
-        print("Signed in", end - start, "seconds")
+    # start = dt.now()
+    # print("Signature verification :", rainbowKeygen.verify('rainbowTest.pub', signature, '../test/testFile.txt'))
+    # end = dt.now()
+    # if args.v:
+    #     print("Verified signature in", end - start, "seconds")
     
-    start = dt.now()
-    print("Signature verification :", rainbowKeygen.verify('rPub.rkey', signature, 'testFile.txt'))
-    end = dt.now()
-    if args.v:
-        print("Verified signature in", end - start, "seconds")
-    
-    if args.v >= 2:
-        print("Signature :", signature)
+    # if args.v >= 2:
+    #     print("Signature :", signature)
