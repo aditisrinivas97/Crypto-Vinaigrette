@@ -17,12 +17,6 @@ args = args()
 args.v = True
 
 myKeyObject = cryptovinaigrette.rainbowKeygen()
-    
-start = dt.now()
-myKeyObject.generate_keys()  
-end = dt.now()
-if args.v:
-    print("Generated keys in", end - start, "seconds")
 
 start = dt.now()
 signature = cryptovinaigrette.rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
