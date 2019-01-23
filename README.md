@@ -22,42 +22,54 @@ You can find the paper here : https://bit.ly/2vwckRw
 Install the package using pip  (Pending..)
 
 ```
-$ pip install crypto-vinaigrette
+$ pip install cryptovinaigrette
 ``` 
 
 ## Usage
 
 1. Creating a key-pair. <br>
 
-    The keys generated are stored in the current working directory.
+    The keys generated are stored in the directory passed as parameter to generate_keys.
 
     ```python
-    import rainbowKeygen
+    from cryptovinaigrette import cryptovinaigrette
 
-    myKeyObject = rainbowKeygen()
-    myKeyObject.generate_keys()
+    # Initialise object
+    myKeyObject = cryptovinaigrette.rainbowKeygen()     
+
+    # Generate keys - make sure the folder exists
+    myKeyObject.generate_keys("/path/to/dest/folder")
     ``` 
 
 2. Signing a document. <br>
 
-    Signing is done using the `Private Key`. Assuming the private key is named `rPriv.rkey` and the document to be signed is `testfile.txt`,
+    Signing is done using the `Private Key`. Assuming the private key is named `cvPriv.pem` and the document to be signed is `testfile.txt`,
     
     ```python
-    rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
+    signature = cryptovinaigrette.rainbowKeygen.sign('cvPriv.pem', 'test/testFile.txt')
     ``` 
 
 3. Verifying the digital signature. <br>
 
-    Verification is done using the `Public Key`. Assuming the public key is named `rPub.rkey` and the document whose signature is to be verified is `testfile.txt`,
+    Verification is done using the `Public Key`. Assuming the public key is named `cvPub.pub` and the document whose signature is to be verified is `testfile.txt`,
 
     ```python
-    check = rainbowKeygen.verify('rPub.rkey', signature, 'testFile.txt')
+
+    # Case where signature is valid
+    check = cryptovinaigrette.rainbowKeygen.verify('cvPub.pub', signature, 'test/testFile.txt')
+
+    # Case where signature is invalid 
+    check = cryptovinaigrette.rainbowKeygen.verify('cvPub.pub', signature, 'test/testFile2.txt')
 
     if check == True :
         print("Verified successfully!")
     else :
-        print("Invalid signature!")
+        print("Signature does not match the file!")
     ``` 
+
+## Example
+
+![Example](https://github.com/aditisrinivas97/Crypto-Vinaigrette/blob/master/extras/example.png)
 
 ## License
 

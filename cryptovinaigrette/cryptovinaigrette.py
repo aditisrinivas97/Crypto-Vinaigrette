@@ -208,7 +208,7 @@ class rainbowKeygen:
         Generates the public key.
 
         Parameters:
-            save - the file to save as.
+            save - the destination folder
         '''
 
         if args.v:
@@ -273,7 +273,7 @@ class rainbowKeygen:
         self.public_key = pubKey
         
         if save != '':
-            with open(save + '.pub', 'wb') as pubFile:
+            with open(save + 'cvPub.pub', 'wb') as pubFile:
                 dill.dump(pubKey, pubFile)
         
         if args.v:
@@ -284,7 +284,7 @@ class rainbowKeygen:
         Generates the private key.
 
         Parameters:
-            save - the file to save as.
+            save - the destination folder
         '''
         
         if args.v:
@@ -302,7 +302,7 @@ class rainbowKeygen:
         self.private_key = privKey
 
         if save != '':
-            with open(save + '.pem', 'wb') as privFile:
+            with open(save + 'cvPriv.pem', 'wb') as privFile:
                 dill.dump(privKey, privFile)
 
         if args.v:
@@ -454,11 +454,11 @@ class rainbowKeygen:
             except GF256Errors as e:
                 print("Layer", layer, "of", privKey.layers)
                 print("Restarting with new vinegar! because", e)
-                raise e
+                #raise e
             except Exception as e:
                 if args.v:
                     print("Restarting with new vinegar because", e, "!")
-                    raise e
+                    #raise e
         
         if args.v:
             print("Done.")
