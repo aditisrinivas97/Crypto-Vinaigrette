@@ -34,11 +34,8 @@ $ pip install cryptovinaigrette
     ```python
     from cryptovinaigrette import cryptovinaigrette
 
-    # Initialise object
-    myKeyObject = cryptovinaigrette.rainbowKeygen()     
-
-    # Generate keys - make sure the folder exists
-    myKeyObject.generate_keys("/path/to/dest/folder")
+    # Initialise keygen object and generate keys
+    myKeyObject = cryptovinaigrette.rainbowKeygen(save="/path/to/dest/folder")
     ``` 
 
 2. Signing a document. <br>

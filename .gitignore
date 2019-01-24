@@ -1,6 +1,8 @@
 # Extras
 .dat/
 *.rkey
+cvPriv.pem
+cvPub.pub
 .DS_Store
 
 # Byte-compiled / optimized / DLL files
