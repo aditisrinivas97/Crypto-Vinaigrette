@@ -16,18 +16,34 @@ class args: pass
 args = args()
 args.v = True
 
-myKeyObject = cryptovinaigrette.rainbowKeygen()
+myKeyObject = cryptovinaigrette.rainbowKeygen(save='./')
 
 start = dt.now()
-signature = cryptovinaigrette.rainbowKeygen.sign('rPriv.rkey', 'testFile.txt')
+signature = cryptovinaigrette.rainbowKeygen.sign('cvPriv.pem', 'testFile.txt')
 end = dt.now()
 if args.v:
-    print("Signed in", end - start, "seconds")
+    print()
+    print("Signed (from file) in", end - start, "seconds")
 
+start = dt.now()
+signature = cryptovinaigrette.rainbowKeygen.sign(myKeyObject.private_key, 'testFile.txt')
+end = dt.now()
+if args.v:
+    print()
+    print("Signed (from key object) in", end - start, "seconds")
 
+print()
 print("Checking testFile.txt")
 start = dt.now()
-print("Signature verification :", colored_binary(cryptovinaigrette.rainbowKeygen.verify('rPub.rkey', signature, 'testFile.txt')))
+print("Signature verification with file:", colored_binary(cryptovinaigrette.rainbowKeygen.verify('cvPub.pub', signature, 'testFile.txt')))
+end = dt.now()
+if args.v:
+    print("Verified signature in", end - start, "seconds")
+
+print()
+print("Checking testFile.txt")
+start = dt.now()
+print("Signature verification with object :", colored_binary(cryptovinaigrette.rainbowKeygen.verify(myKeyObject.public_key, signature, 'testFile.txt')))
 end = dt.now()
 if args.v:
     print("Verified signature in", end - start, "seconds")
@@ -35,9 +51,10 @@ if args.v:
 if args.v >= 2:
     print("Signature :", signature)
 
+print()
 print("Checking testFile2.txt")
 start = dt.now()
-print("Signature verification :", colored_binary(cryptovinaigrette.rainbowKeygen.verify('rPub.rkey', signature, 'testFile2.txt')))
+print("Signature verification with tampered file :", colored_binary(cryptovinaigrette.rainbowKeygen.verify('rPub.rkey', signature, 'testFile2.txt')))
 end = dt.now()
 if args.v:
     print("Verified signature in", end - start, "seconds")

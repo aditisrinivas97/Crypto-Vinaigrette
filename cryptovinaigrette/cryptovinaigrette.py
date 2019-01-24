@@ -358,6 +358,8 @@ class rainbowKeygen:
         # Load private key
         if isinstance(keyFile, privKeyClass):
             privKey = keyFile
+            privKey.n = len(privKey.F_layers[-1][0]['alphas'][0]) + len(privKey.F_layers[-1][0]['betas'])
+            privKey.layers = len(privKey.F_layers)
             if args.v:
                 print("Loading private key from file...")
         else:
