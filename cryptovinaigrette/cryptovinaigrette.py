@@ -356,10 +356,15 @@ class rainbowKeygen:
         if args.v:
             pass#print("Signing...")
         # Load private key
-        with open(keyFile, 'rb') as kFile:
-            privKey = dill.load(kFile)
-            privKey.n = len(privKey.F_layers[-1][0]['alphas'][0]) + len(privKey.F_layers[-1][0]['betas'])
-            privKey.layers = len(privKey.F_layers)
+        if isinstance(keyFile, privKeyClass):
+            privKey = keyFile
+            if args.v:
+                print("Loading private key from file...")
+        else:
+            with open(keyFile, 'rb') as kFile:
+                privKey = dill.load(kFile)
+                privKey.n = len(privKey.F_layers[-1][0]['alphas'][0]) + len(privKey.F_layers[-1][0]['betas'])
+                privKey.layers = len(privKey.F_layers)
 
         # Load message (as n dimensional vector)
         with open(msgFile, 'r') as mFile:
@@ -468,8 +473,13 @@ class rainbowKeygen:
         '''
         Verify the signature using the public key
         '''
-        with open(keyFile, 'rb') as kFile:
-            pubKey = dill.load(kFile)
+        if isinstance(keyFile, pubKeyClass):
+            pubKey = keyFile
+            if args.v:
+                print("Loading public key from file...")
+        else:
+            with open(keyFile, 'rb') as kFile:
+                pubKey = dill.load(kFile)
 
         pubKey.quadratic = list()
 
