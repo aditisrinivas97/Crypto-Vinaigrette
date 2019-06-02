@@ -19,7 +19,14 @@ You can find the paper here : https://bit.ly/2vwckRw
 
 ## Installing
 
-Install the package using pip  (Pending..)
+To build and install cryptovinaigrette, run the following commands
+```
+$ git clone https://github.com/aditisrinivas97/Crypto-Vinaigrette
+$ cd Crypto-Vinaigrette
+$ python3 setup.py install
+```
+
+Or install the package using pip  (Pending..)
 
 ```
 $ pip install cryptovinaigrette
